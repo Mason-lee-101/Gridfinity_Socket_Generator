@@ -192,3 +192,7 @@ This is the number of segments OpenSCAD uses to approximate circles. Higher valu
 
 - `Vertical_Socket_generator.scad` - vertical socket-hole generator using diameter and label inputs
 - `Horizontal_Socket_generator.scad` - horizontal socket-cradle generator using diameter, length, and label inputs
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
