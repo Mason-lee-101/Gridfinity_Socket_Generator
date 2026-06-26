@@ -5,6 +5,7 @@
 $fn = 96;                  // Circle segments: higher is smoother but renders slower
 
 // ---- INPUT ----
+Enable_tapered_socket = 0; // 1 = use "bottomsize/topsize/label" entries
 Enabled_magnet = 0;        // 1 = magnet pockets, 0 = disabled
 Enabled_labels = 0;        // 1 = engraved labels, 0 = disabled
 margin_x = 3;              // Horizontal spacing around sockets
@@ -12,12 +13,15 @@ margin_y = 2;              // Vertical spacing around socket rows
 bed_size = "250X250";      // Printer bed size: X width by Y depth
 height = 2;                // Height above base in 7 mm units
 Alignment = "top_left";    // See Readme.md for alignment choices
-socket_layout = "grid";    // grid, free, or compact
+socket_layout = "compact"; // grid, free, or compact
 
 // Each inner list is a row. Use diameter, "diameter/label", or 0 for a gap.
+// If Enable_tapered_socket = 1, strings can use "bottomsize/topsize/label".
 socket_diams = [
-    ["37.85/1in", 27.14],
-    ["9.19/1/4", 24.78]
+    ["43.97/32mm", "43.82/31mm", "42.76/30mm", "41.94/29mm", "41.01/28mm"],
+    ["38.5/27mm", "37.01/26mm", "35.86/25mm", "34.2/24mm", "33.88/23mm", "31.83/22mm"],
+    ["29.98/21mm", "29.92/17mm", "29.89/19mm", "29.89/20mm", "29.85/18mm", "24.88/14mm"],
+    ["24.86/11mm", "24.85/16mm", "24.84/8mm", "24.83/13mm", "24.83/10mm", "24.82/9mm", "24.82/12mm", "24.82/15mm"]
 ];
 
 // ---- SOCKET SETTINGS ----
@@ -147,7 +151,8 @@ difference() {
 module socket_holes() {
     for (r = [0 : rows - 1]) {
         for (c = [0 : len(socket_diams[r]) - 1]) {
-            d = socket_diameter(socket_diams[r][c]);
+            entry = socket_diams[r][c];
+            d = socket_diameter(entry);
 
             if (d > 0) {
                 translate([
@@ -157,7 +162,7 @@ module socket_holes() {
                 ])
                     cylinder(
                         h = effective_hole_depth + 0.25,
-                        d = d + fit_clearance
+                        d = socket_hole_diameter(entry) + fit_clearance
                     );
             }
         }
@@ -271,8 +276,13 @@ module gridfinity_screw_holes(nx, ny) {
 function list_sum(values, i = 0) =
     i >= len(values) ? 0 : values[i] + list_sum(values, i + 1);
 
-function slash_index(value, i = 0) =
-    i >= len(value) ? -1 : value[i] == "/" ? i : slash_index(value, i + 1);
+function slash_index(value, occurrence = 1, i = 0, found = 0) =
+    i >= len(value) ? -1 :
+    value[i] == "/"
+        ? found + 1 == occurrence
+            ? i
+            : slash_index(value, occurrence, i + 1, found + 1)
+        : slash_index(value, occurrence, i + 1, found);
 
 function bed_separator_index(value, i = 0) =
     !is_string(value) || i >= len(value) ? -1 :
@@ -293,15 +303,13 @@ function digit_value(char) =
     char == "6" ? 6 : char == "7" ? 7 : char == "8" ? 8 :
     char == "9" ? 9 : -1;
 
-function parse_number(value, end, i = 0, result = 0, decimal = 0) =
-    i >= end ? result :
-    value[i] == "."
-        ? parse_number(value, end, i + 1, result, 0.1)
-        : let(digit = digit_value(value[i]))
+function parse_number(value, start, end, i = 0, result = 0, decimal = 0) =
+    start + i >= end ? result :
+    value[start + i] == "."
+        ? parse_number(value, start, end, i + 1, result, 0.1)
+        : let(digit = digit_value(value[start + i]))
           parse_number(
-              value,
-              end,
-              i + 1,
+              value, start, end, i + 1,
               decimal == 0 ? result * 10 + digit : result + digit * decimal,
               decimal == 0 ? 0 : decimal / 10
           );
@@ -321,16 +329,45 @@ function string_from(value, i) =
     i >= len(value) ? "" : str(value[i], string_from(value, i + 1));
 
 function socket_diameter(value) =
+    max(socket_bottom_diameter(value), socket_top_diameter(value));
+
+function socket_bottom_diameter(value) =
     is_string(value)
-        ? let(separator = slash_index(value))
-          parse_number(value, separator < 0 ? len(value) : separator)
+        ? let(first = slash_index(value, 1))
+          parse_number(value, 0, first < 0 ? len(value) : first)
         : is_list(value) ? value[0] : value;
+
+function socket_top_diameter(value) =
+    is_string(value)
+        ? let(
+            first = slash_index(value, 1),
+            second = slash_index(value, 2)
+          )
+          Enable_tapered_socket && second > 0
+              ? parse_number(value, first + 1, second)
+              : socket_bottom_diameter(value)
+        : is_list(value) && Enable_tapered_socket && len(value) > 1
+            ? value[1]
+            : socket_bottom_diameter(value);
+
+function socket_hole_diameter(value) =
+    Enable_tapered_socket ? socket_bottom_diameter(value) : socket_diameter(value);
 
 function socket_label(value) =
     is_string(value)
-        ? let(separator = slash_index(value))
-          (separator < 0 ? value : string_from(value, separator + 1))
-        : is_list(value) && len(value) > 1 ? value[1] : str(value);
+        ? let(
+            first = slash_index(value, 1),
+            second = slash_index(value, 2),
+            label_start = Enable_tapered_socket && second > 0
+                ? second + 1
+                : first + 1
+          )
+          (first < 0 ? value : string_from(value, label_start))
+        : is_list(value)
+            ? Enable_tapered_socket && len(value) > 2
+                ? value[2]
+                : len(value) > 1 ? value[1] : str(value)
+            : str(value);
 
 function row_max_d(r) =
     let(active = [for (entry = socket_diams[r])

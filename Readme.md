@@ -1,28 +1,27 @@
 # Gridfinity Socket Holder Generators
 
-A pair of customizable OpenSCAD generators for vertical and horizontal socket holders with Gridfinity-compatible bases. Enter your socket measurements, choose a layout, and the model automatically rounds the footprint up to whole 42 mm Gridfinity cells.
+A pair of customizable OpenSCAD generators for vertical and horizontal Gridfinity socket holders. 
 
-The project also includes a flat-socket generator for sockets that rest horizontally in curved cradles.
-
-Created by Mason Lee and Codex.
 
 ## Requirements
-Current requirements, I hope it would get hosted on https://gridfinity.perplexinglabs.com one day ^-^
+Current requirements are as follows:
 
 - [OpenSCAD](https://openscad.org/)
 - Calipers for measuring the outside diameter of each socket
 
-## Quick start
+> Note: I hope it will get hosted somewhere for everyone to use.
 
+## Quick start
+1. Measure the sockets that you want to create a holder for. 
 1. Open `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad` in OpenSCAD.
 2. Adjust the settings near the top of the file.
 3. Replace the example `socket_diams` rows with your socket measurements.
 
 4. Select **File > Export > Export as STL**.
 
-All measurements in the generator are millimeters.
+> Note: All measurements in the generator are millimeters.
 
-## Vertical socket input
+## Vertical Socket Generator
 <details>
 <summary>Click to expand</summary>
 `socket_diams` is a list of rows. Rows are placed from top to bottom, and entries within each row are placed from left to right.
@@ -38,16 +37,13 @@ socket_diams = [
 - A number such as `27.14` creates a hole for a socket with a 27.14 mm outside diameter.
 - A string such as `"19.86/14mm"` creates a 19.86 mm hole with the custom label `14mm`.
 - Only the first slash separates the diameter and label, so `"9.19/1/4"` produces the fractional label `1/4`.
+- Set `Enable_tapered_socket = 1` for tapered sockets and enter them as `"bottomsize/topsize/label"`, such as `"33.5/36/36mm"`. The socket hole stays straight using `bottomsize`; `topsize` is used for layout spacing.
 - A `0` leaves an empty position, which is especially useful in the `grid` layout.
 - Add another inner `[ ... ]` list, separated by a comma, to create another row.
 
-Measure the widest outside diameter of each socket—usually the larger measurement from its two ends. The generator adds `fit_clearance` to this measurement automatically.
-
-Ready-to-paste metric groups are available in `socket_diams_by_drive_metric.txt`. They are separated by drive size, impact/standard type, and deep/standard length.
-
 </details>
 
-## Horizontal socket input
+## Horizontal Socket Generator
 
 <details>
 <summary>Click to expand</summary>
@@ -60,13 +56,15 @@ socket_diams = [
 ];
 ```
 
-The format is `"diameter/length/label"`. For example, `"19.86/38/14mm"` means a 19.86 mm diameter socket that is 38 mm long and labeled `14mm`. Fractional labels still work because only the first two slashes separate the measurements.
+The format is `"diameter/length/label"`. For example, `"19.86/38/14mm"` means a 19.86 mm diameter socket that is 38 mm long and labeled `14mm`. 
 
 Sockets run front-to-back in shallow curved cradles. Adjust `recess_fraction` to change how deeply they sit; values above `0.5` are intentionally rejected to avoid trapping sockets in an undercut.
 
 </details>
 
 ## Main settings
+<details>
+<summary>Click to expand</summary>
 
 ### Features
 
@@ -82,8 +80,11 @@ Optional screw holes are controlled separately:
 ```scad
 screw_holes = false;
 ```
+</details>
 
 ### Spacing and height
+<details>
+<summary>Click to expand</summary>
 
 ```scad
 margin_x = 2;
@@ -99,13 +100,16 @@ height = 2;
 `height` is the holder height above the 7 mm base, expressed in 7 mm units:
 
 - `1` = 7 mm above the base
-- `2` = 14 mm above the base
+- `2` = 14 mm above the base - **Default**
 - `3` = 21 mm above the base
-- `4` = 28 mm above the base
 
 When the holder is shorter than the requested `hole_depth`, the holes are shortened automatically to preserve `floor_thickness`.
 
-### Alignment
+</details>
+
+### Alignment Settings
+<details>
+<summary>Click to expand</summary>
 
 ```scad
 Alignment = "top_left";
@@ -132,8 +136,11 @@ socket_layout = "grid";
 - `"grid"` gives every socket an equally sized position based on the largest socket. Use it for straight, evenly aligned rows.
 - `"free"` uses each socket's actual width while retaining normal row spacing.
 - `"compact"` packs sockets and rows tightly and accounts for label clearance.
+</details>
 
-## Socket and label adjustments
+## Socket and label Settings
+<details>
+<summary>Click to expand</summary>
 
 ```scad
 fit_clearance = 0.6;
@@ -152,8 +159,11 @@ label_collision_clearance = 0.5;
 - The label settings control text size, engraving depth, spacing, and compact-layout clearance.
 
 Print a small test holder before generating a large set, since socket measurements and printer tolerances vary.
+</details>
 
-## Advanced Gridfinity settings
+## Advanced Gridfinity Settings
+<details>
+<summary>Click to expand</summary>
 
 These values normally do not need changing. They define the base profile and optional bottom holes used by both generators.
 
@@ -179,14 +189,18 @@ hole_from_cell_edge = 8;
 - `magnet_d` and `magnet_h` set the optional magnet-pocket size.
 - Set `screw_holes` to `true` to add screw holes; `screw_d` and `screw_h` set their size.
 - `hole_from_cell_edge` positions magnet and screw-hole centers inward from each cell edge.
+</details>
 
-## Render quality
+## Render Quality Settings
+<details>
+<summary>Click to expand</summary>
 
 ```scad
 $fn = 96;
 ```
 
 This is the number of segments OpenSCAD uses to approximate circles. Higher values produce smoother holes but take longer to render. `48` is useful for faster previews, while `96` is a good final-quality setting.
+</details>
 
 ## Project files
 
