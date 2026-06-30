@@ -32,7 +32,7 @@ floor_thickness = 3;       // Material beneath socket holes
 label_size = 5;            // Text size
 label_depth = 0.7;         // Engraving depth
 label_hole_gap = 3;        // Space between hole and label
-label_collision_clearance = 0.5; // Compact-layout clearance
+label_collision_clearance = 0.5; // Extra clearance around labels
 
 // ---- GRIDFINITY SETTINGS ----
 grid = 42;                 // Gridfinity cell pitch
@@ -68,11 +68,17 @@ layout_max_d = max([
             if (socket_diameter(entry) > 0)
                 socket_diameter(entry) + fit_clearance
 ]);
-grid_pitch_x = layout_max_d + margin_x;
+layout_max_w = max([
+    for (row = socket_diams)
+        for (entry = row)
+            if (socket_diameter(entry) > 0)
+                entry_width(entry)
+]);
+grid_pitch_x = layout_max_w + margin_x;
 grid_pitch_y = layout_max_d + margin_y + label_band();
 
 required_x = socket_layout == "grid"
-    ? cols * layout_max_d + (cols + 1) * margin_x
+    ? cols * layout_max_w + (cols + 1) * margin_x
     : max([for (r = [0 : rows - 1]) row_width(r)]);
 required_y = socket_layout == "grid"
     ? rows * layout_max_d + (rows + 1) * margin_y +
@@ -376,7 +382,7 @@ function row_max_d(r) =
 
 function row_width(r) =
     let(active = [for (entry = socket_diams[r])
-        if (socket_diameter(entry) > 0) socket_diameter(entry) + fit_clearance])
+        if (socket_diameter(entry) > 0) entry_width(entry)])
     list_sum(active) + margin_x * (len(active) + 1);
 
 // Grid/free reserve a full strip for labels. Compact keeps the labels but lets
@@ -394,6 +400,14 @@ function label_width(entry) =
 // Reserve the nominal text height so font differences cannot consume the
 // compact-layout safety clearance.
 function label_height() = label_size;
+
+// Reserve enough horizontal room for both the hole and its engraved label.
+// This lets label_collision_clearance separate adjacent labels, not just rows.
+function entry_width(entry) =
+    Enabled_labels
+        ? max(socket_diameter(entry) + fit_clearance,
+            label_width(entry) + label_collision_clearance)
+        : socket_diameter(entry) + fit_clearance;
 
 // Compare compact-row positions before the Gridfinity-sized body exists.
 // The body's left/center/right offset is shared by every row and cancels out
@@ -416,7 +430,8 @@ function label_overlaps_hole(r, label_c, hole_c) =
     abs(compact_socket_x(r, label_c) -
         compact_socket_x(r + 1, hole_c)) <
         label_width(socket_diams[r][label_c]) / 2 +
-        (socket_diameter(socket_diams[r + 1][hole_c]) + fit_clearance) / 2;
+        (socket_diameter(socket_diams[r + 1][hole_c]) + fit_clearance) / 2 +
+        label_collision_clearance;
 
 // Vertical positions relative to a row's top edge. These mirror socket_y()
 // without depending on body_y or required_y, which are not known yet.
@@ -466,7 +481,7 @@ function widths_before(r, c, i = 0) =
     i >= c ? 0 :
     widths_before(r, c, i + 1) +
         (socket_diameter(socket_diams[r][i]) > 0
-            ? socket_diameter(socket_diams[r][i]) + fit_clearance + margin_x
+            ? entry_width(socket_diams[r][i]) + margin_x
             : 0);
 
 function heights_before(r, i = 0) =
@@ -474,10 +489,10 @@ function heights_before(r, i = 0) =
 
 function socket_x(r, c) =
     socket_layout == "grid"
-        ? content_left(required_x) + margin_x + layout_max_d / 2 +
+        ? content_left(required_x) + margin_x + layout_max_w / 2 +
             c * grid_pitch_x
         : row_left(r) + margin_x + widths_before(r, c) +
-            (socket_diameter(socket_diams[r][c]) + fit_clearance) / 2;
+            entry_width(socket_diams[r][c]) / 2;
 
 function socket_y(r, c) =
     let(

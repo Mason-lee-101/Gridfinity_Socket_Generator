@@ -30,6 +30,7 @@ floor_thickness = 3;       // Solid material left below the deepest cradle
 label_size = 5;            // OpenSCAD text size in mm
 label_depth = 0.7;         // Label engraving depth in mm
 label_socket_gap = 3;      // Space in mm between a cradle end and its label
+label_collision_clearance = 0.5; // Extra clearance around labels
 
 // ---- GRIDFINITY SETTINGS ----
 grid = 42;                 // Gridfinity cell pitch in mm
@@ -70,11 +71,18 @@ layout_max_l = max([
                 socket_length(entry) + length_clearance
 ]);
 
-grid_pitch_x = layout_max_d + margin_x;
+layout_max_w = max([
+    for (row = socket_diams)
+        for (entry = row)
+            if (socket_diameter(entry) > 0)
+                entry_width(entry)
+]);
+
+grid_pitch_x = layout_max_w + margin_x;
 grid_pitch_y = layout_max_l + margin_y + label_band();
 
 required_x = socket_layout == "grid"
-    ? cols * layout_max_d + (cols + 1) * margin_x
+    ? cols * layout_max_w + (cols + 1) * margin_x
     : max([for (r = [0 : rows - 1]) row_width(r)]);
 
 required_y = socket_layout == "grid"
@@ -339,6 +347,15 @@ function effective_recess(entry) =
 // ---- LAYOUT HELPERS ----
 function label_band() = Enabled_labels ? label_socket_gap + label_size : 0;
 
+function label_width(entry) =
+    len(socket_label(entry)) * label_size * 0.65;
+
+function entry_width(entry) =
+    Enabled_labels
+        ? max(socket_diameter(entry) + fit_clearance,
+            label_width(entry) + label_collision_clearance)
+        : socket_diameter(entry) + fit_clearance;
+
 function row_max_l(r) =
     let(active = [
         for (entry = socket_diams[r])
@@ -351,7 +368,7 @@ function row_width(r) =
     let(active = [
         for (entry = socket_diams[r])
             if (socket_diameter(entry) > 0)
-                socket_diameter(entry) + fit_clearance
+                entry_width(entry)
     ])
     list_sum(active) + margin_x * (len(active) + 1);
 
@@ -361,8 +378,7 @@ function widths_before(r, c, i = 0) =
     i >= c ? 0 :
     widths_before(r, c, i + 1) +
         (socket_diameter(socket_diams[r][i]) > 0
-            ? socket_diameter(socket_diams[r][i]) + fit_clearance +
-                margin_x
+            ? entry_width(socket_diams[r][i]) + margin_x
             : 0);
 
 function heights_before(r, i = 0) =
@@ -370,10 +386,10 @@ function heights_before(r, i = 0) =
 
 function socket_x(r, c) =
     socket_layout == "grid"
-        ? content_left(required_x) + margin_x + layout_max_d / 2 +
+        ? content_left(required_x) + margin_x + layout_max_w / 2 +
             c * grid_pitch_x
         : row_left(r) + margin_x + widths_before(r, c) +
-            (socket_diameter(socket_diams[r][c]) + fit_clearance) / 2;
+            entry_width(socket_diams[r][c]) / 2;
 
 function socket_y(r) =
     socket_layout == "grid"

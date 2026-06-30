@@ -149,14 +149,15 @@ floor_thickness = 3;
 
 label_size = 5;
 label_depth = 0.7;
-label_hole_gap = 3;
+label_hole_gap = 3;    // Vertical generator
+label_socket_gap = 3;  // Horizontal generator
 label_collision_clearance = 0.5;
 ```
 
 - Increase `fit_clearance` if sockets fit too tightly; decrease it if they are too loose.
 - `hole_depth` is the maximum insertion depth.
 - `floor_thickness` is the solid material left beneath each socket.
-- The label settings control text size, engraving depth, spacing, and compact-layout clearance.
+- The label settings control text size, engraving depth, socket-to-label spacing, and label collision clearance.
 
 Print a small test holder before generating a large set, since socket measurements and printer tolerances vary.
 </details>
