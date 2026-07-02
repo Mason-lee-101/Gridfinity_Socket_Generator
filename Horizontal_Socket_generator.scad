@@ -3,7 +3,9 @@
 // Made by Mason Lee and Codex
 
 
-// Each inner list is a row. Use diameter, "diameter/label", or 0 for a gap.
+// Each inner list is a row. Use "diameter/length/label" or 0 for a gap.
+// If Enable_tapered_socket = 1, strings can use
+// "bottom_diameter/bottom_length/top_diameter/top_length/label".
 socket_diams = [
     ["19.86/38/14mm", "17.86/36/13mm", "16.91/35/12mm"],
     ["15.85/34/11mm", "13.96/32/10mm", 0]
@@ -13,6 +15,7 @@ socket_diams = [
 // ---- INPUT ----
 // Set switches to 1 to enable them or 0 to disable them.
 $fn = 96;                  // Circle segments: higher is smoother but renders slower
+Enable_tapered_socket = 0; // 1 = use "bottom_d/bottom_l/top_d/top_l/label" entries
 Enabled_magnet = 0;        // Add four magnet pockets beneath every grid cell
 Enabled_labels = 0;        // Engrave each socket's label near its cradle
 margin_x = 2;              // Horizontal space around and between cradles
@@ -20,7 +23,7 @@ margin_y = 2;              // Vertical space around cradle rows
 bed_size = "250X250";      // Printer bed size: X width by Y depth
 height = 2;                // Holder height above the base, in 7 mm units
 Alignment = "top_left";    // top_left, top_right, center_left, center, center_right, bottom_left, or bottom_right
-socket_layout = "grid";    // grid or free
+socket_layout = "grid";    // grid, free, or compact
 
 //  ---- Label SETTINGS ----
 label_size = 5;            // OpenSCAD text size in mm
@@ -91,8 +94,10 @@ required_x = socket_layout == "grid"
 required_y = socket_layout == "grid"
     ? rows * layout_max_l + (rows + 1) * margin_y +
         rows * label_band()
-    : list_sum([for (r = [0 : rows - 1]) row_height(r)]) +
-        margin_y;
+    : socket_layout == "compact"
+        ? compact_required_y()
+        : list_sum([for (r = [0 : rows - 1]) row_height(r)]) +
+            margin_y;
 
 base_cols = max(1, ceil((required_x + 0.5) / grid));
 base_rows = max(1, ceil((required_y + 0.5) / grid));
@@ -136,8 +141,9 @@ assert(
     "Unknown Alignment value"
 );
 assert(
-    socket_layout == "grid" || socket_layout == "free",
-    "socket_layout must be grid or free"
+    socket_layout == "grid" || socket_layout == "free" ||
+    socket_layout == "compact",
+    "socket_layout must be grid, free, or compact"
 );
 
 // ---- BUILD ----
@@ -169,21 +175,51 @@ module socket_cradles() {
             d = socket_diameter(entry);
 
             if (d > 0) {
-                cradle_d = d + fit_clearance;
-                cradle_l = socket_length(entry) + length_clearance;
-                recess = effective_recess(entry);
+                total_l = socket_length(entry) + length_clearance;
+                top_l = socket_top_length(entry) +
+                    (is_tapered_entry(entry) ? length_clearance / 2 : 0);
+                bottom_l = socket_bottom_length(entry) +
+                    (is_tapered_entry(entry) ? length_clearance / 2 : 0);
+                y_start = socket_y(r) + total_l / 2;
 
-                // The cylinder axis runs front-to-back along the Y direction.
-                translate([
-                    socket_x(r, c),
-                    socket_y(r) + cradle_l / 2,
-                    total_h + cradle_d / 2 - recess
-                ])
-                    rotate([90, 0, 0])
-                        cylinder(h = cradle_l, d = cradle_d);
+                if (is_tapered_entry(entry)) {
+                    cradle_segment(
+                        socket_x(r, c),
+                        y_start,
+                        bottom_l,
+                        socket_bottom_diameter(entry)
+                    );
+                    cradle_segment(
+                        socket_x(r, c),
+                        y_start - bottom_l,
+                        top_l,
+                        socket_top_diameter(entry)
+                    );
+                } else {
+                    cradle_segment(
+                        socket_x(r, c),
+                        y_start,
+                        total_l,
+                        d
+                    );
+                }
             }
         }
     }
+}
+
+module cradle_segment(x, y_start, segment_l, segment_d) {
+    cradle_d = segment_d + fit_clearance;
+    recess = effective_recess_d(segment_d);
+
+    // The cylinder axis runs front-to-back along the Y direction.
+    translate([
+        x,
+        y_start,
+        total_h + cradle_d / 2 - recess
+    ])
+        rotate([90, 0, 0])
+            cylinder(h = segment_l, d = cradle_d);
 }
 
 // ---- GRIDFINITY BASE ----
@@ -322,13 +358,18 @@ function parse_bed_number(value, start, end, i = 0, result = 0, decimal = 0) =
 function string_from(value, i) =
     i >= len(value) ? "" : str(value[i], string_from(value, i + 1));
 
-function socket_diameter(value) =
+function is_tapered_entry(value) =
+    Enable_tapered_socket &&
+    ((is_string(value) && slash_index(value, 4) > 0) ||
+        (is_list(value) && len(value) > 4));
+
+function socket_bottom_diameter(value) =
     is_string(value)
         ? let(first = slash_index(value, 1))
           parse_number(value, 0, first)
         : is_list(value) ? value[0] : 0;
 
-function socket_length(value) =
+function socket_bottom_length(value) =
     is_string(value)
         ? let(
             first = slash_index(value, 1),
@@ -337,15 +378,51 @@ function socket_length(value) =
           parse_number(value, first + 1, second)
         : is_list(value) && len(value) > 1 ? value[1] : 0;
 
+function socket_top_diameter(value) =
+    is_tapered_entry(value)
+        ? is_string(value)
+            ? let(
+                second = slash_index(value, 2),
+                third = slash_index(value, 3)
+              )
+              parse_number(value, second + 1, third)
+            : value[2]
+        : socket_bottom_diameter(value);
+
+function socket_top_length(value) =
+    is_tapered_entry(value)
+        ? is_string(value)
+            ? let(
+                third = slash_index(value, 3),
+                fourth = slash_index(value, 4)
+              )
+              parse_number(value, third + 1, fourth)
+            : value[3]
+        : 0;
+
+function socket_diameter(value) =
+    max(socket_bottom_diameter(value), socket_top_diameter(value));
+
+function socket_length(value) =
+    socket_bottom_length(value) + socket_top_length(value);
+
 function socket_label(value) =
     is_string(value)
-        ? let(second = slash_index(value, 2))
-          string_from(value, second + 1)
-        : is_list(value) && len(value) > 2 ? value[2] : "";
+        ? is_tapered_entry(value)
+            ? let(fourth = slash_index(value, 4))
+              string_from(value, fourth + 1)
+            : let(second = slash_index(value, 2))
+              string_from(value, second + 1)
+        : is_tapered_entry(value)
+            ? value[4]
+            : is_list(value) && len(value) > 2 ? value[2] : "";
 
 function effective_recess(entry) =
+    effective_recess_d(socket_diameter(entry));
+
+function effective_recess_d(diameter) =
     min(
-        (socket_diameter(entry) + fit_clearance) * recess_fraction,
+        (diameter + fit_clearance) * recess_fraction,
         holder_h - floor_thickness
     );
 
@@ -389,6 +466,57 @@ function widths_before(r, c, i = 0) =
 function heights_before(r, i = 0) =
     i >= r ? 0 : row_height(i) + heights_before(r, i + 1);
 
+function compact_row_left(r) =
+    Alignment == "top_left" || Alignment == "center_left" ||
+        Alignment == "bottom_left"
+        ? 0
+        : Alignment == "top_right" || Alignment == "center_right" ||
+            Alignment == "bottom_right"
+            ? -row_width(r)
+            : -row_width(r) / 2;
+
+function compact_socket_local_x(r, c) =
+    compact_row_left(r) + margin_x + widths_before(r, c) +
+        entry_width(socket_diams[r][c]) / 2;
+
+function compact_cradles_overlap_x(r, c, next_c) =
+    abs(compact_socket_local_x(r, c) -
+        compact_socket_local_x(r + 1, next_c)) <
+        (socket_diameter(socket_diams[r][c]) + fit_clearance) / 2 +
+        (socket_diameter(socket_diams[r + 1][next_c]) + fit_clearance) / 2 +
+        margin_x;
+
+function compact_pair_clearance(r, c, next_c) =
+    compact_cradles_overlap_x(r, c, next_c)
+        ? (socket_length(socket_diams[r][c]) + length_clearance) / 2 +
+            (socket_length(socket_diams[r + 1][next_c]) +
+                length_clearance) / 2 + margin_y
+        : 0;
+
+function compact_pair_step(r) =
+    r >= rows - 1 ? 0 :
+    Enabled_labels
+        ? row_max_l(r) / 2 + row_max_l(r + 1) / 2 +
+            label_band() + margin_y
+        : let(clearances = [
+            for (c = [0 : len(socket_diams[r]) - 1])
+                for (next_c = [0 : len(socket_diams[r + 1]) - 1])
+                    if (socket_diameter(socket_diams[r][c]) > 0 &&
+                        socket_diameter(socket_diams[r + 1][next_c]) > 0)
+                        compact_pair_clearance(r, c, next_c)
+        ])
+        len(clearances) == 0 ? row_max_l(r) / 2 + row_max_l(r + 1) / 2 +
+            margin_y : max(clearances);
+
+function compact_steps_before(r, i = 0) =
+    i >= r ? 0 : compact_pair_step(i) + compact_steps_before(r, i + 1);
+
+function compact_required_y() =
+    rows == 0 ? 0 :
+        margin_y + row_max_l(0) / 2 +
+        compact_steps_before(rows - 1) +
+        row_max_l(rows - 1) / 2 + margin_y + label_band();
+
 function socket_x(r, c) =
     socket_layout == "grid"
         ? content_left(required_x) + margin_x + layout_max_w / 2 +
@@ -400,6 +528,9 @@ function socket_y(r) =
     socket_layout == "grid"
         ? content_top() - margin_y - layout_max_l / 2 -
             r * grid_pitch_y
+        : socket_layout == "compact"
+            ? content_top() - margin_y - row_max_l(0) / 2 -
+                compact_steps_before(r)
         : content_top() - heights_before(r) - margin_y -
             row_max_l(r) / 2;
 

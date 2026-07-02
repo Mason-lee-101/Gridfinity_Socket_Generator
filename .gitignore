@@ -2,3 +2,4 @@
 *.stl
 *.txt
 *.csv
+!socket_template.csv

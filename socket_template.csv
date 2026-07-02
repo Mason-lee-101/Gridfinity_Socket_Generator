@@ -1,0 +1,6 @@
+Socket label,System,Socket type,Drive size,Socket height,Bottom diameter mm,"Bottom length mm
+",Top diameter mm,Top length mm,Brand,Notes
+1\2,imperial,standard,1\4,standard,17.86,14,17.84,,Example Brand,Example row
+7\16,imperial,standard,1\4,deep,15.83,14,15.75,30,Example Brand,Optional example
+13,metric,impact,3\8,standard,20.6,14,19.5,,Example Brand,Metric labels are okay
+19,metric,impact,1\2,deep,30,14,29.8,,Example Brand,Measure widest outside diameter if not tapered

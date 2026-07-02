@@ -1,25 +1,66 @@
 # Gridfinity Socket Holder Generators
 
-A pair of customizable OpenSCAD generators for vertical and horizontal Gridfinity socket holders. 
+![Generator](./Assets/Main.png)
+
+A pair of customizable OpenSCAD generators for vertical and horizontal Gridfinity socket holders.
 
 
 ## Requirements
-Current requirements are as follows:
-
 - [OpenSCAD](https://openscad.org/)
-- Calipers for measuring the outside diameter of each socket
+- Calipers for measuring socket diameter and length
 
 > Note: I hope it will get hosted somewhere for everyone to use.
 
 ## Quick start
-1. Measure the sockets that you want to create a holder for. 
-1. Open `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad` in OpenSCAD.
-2. Adjust the settings near the top of the file.
-3. Replace the example `socket_diams` rows with your socket measurements.
-
-4. Select **File > Export > Export as STL**.
+1. Measure the sockets that you want to create a holder for.
+2. Open `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad` in OpenSCAD.
+3. Adjust the settings near the top of the file.
+4. Replace the example `socket_diams` rows with your socket measurements.
+5. Select **File > Export > Export as STL**.
 
 > Note: All measurements in the generator are millimeters.
+
+## How To Measure Sockets
+<details>
+<summary>Click to expand</summary>
+
+I have add a template CSV fie for people to use to measure their sockets. 
+> Note: you have to use `\` instead of `/` as excel or google sheet will treat the fraction as a date or some other format. 
+
+![Socket example](./Assets/Socket_example.png)
+
+Use calipers and measure in millimeters. Measure the widest outside diameter of the part of the socket that will sit in the holder, not the wrench drive opening.
+
+### For the vertical generator:
+
+
+
+1. Measure the socket's outside diameter near the end that goes into the hole.
+2. If the socket is tapered, measure both the smaller bottom diameter and the larger top diameter.
+3. Use `"diameter/label"` for straight sockets, such as `"19.86/14mm"`.
+4. Use `"bottomsize/topsize/label"` for tapered sockets when `Enable_tapered_socket = 1`, such as `"33.5/36/36mm"`.
+
+> Note: For vertical tapered sockets, `bottomsize` is used for the hole diameter. `topsize` is used for layout spacing. Increase `height` or `hole_depth` if the socket needs to sit deeper.
+
+### For the horizontal generator:
+
+1. Measure the socket's outside diameter.
+2. Measure the full socket length from end to end.
+3. Use `"diameter/length/label"`, such as `"19.86/38/14mm"`.
+4. For tapered sockets, measure the bottom diameter, bottom length, top diameter, and top length.
+5. Use `"bottom_diameter/bottom_length/top_diameter/top_length/label"` when `Enable_tapered_socket = 1`, such as `"19.86/24/22.5/14/14mm"`.
+
+> Note: If the transition between socket sections is rounded or hard to measure, add a few millimeters to the larger section length so the cradle has enough clearance.
+
+Tips:
+
+- Take a few measurements around the socket and use the largest value.
+- If the socket rocks or binds, increase `fit_clearance` slightly.
+- If the socket feels too loose, decrease `fit_clearance` slightly.
+- Print a small test holder before making a full set.
+
+</details>
+
 
 ## Vertical Socket Generator
 <details>
@@ -47,7 +88,7 @@ socket_diams = [
 
 <details>
 <summary>Click to expand</summary>
-Open `Horizontal_Socket_generator.scad` to create a holder where sockets lie horizontally. Its input format includes both the outside diameter and complete socket length:
+Open `Horizontal_Socket_generator.scad` to create a holder where sockets lie horizontally. Its normal input format includes both the outside diameter and complete socket length:
 
 ```scad
 socket_diams = [
@@ -58,7 +99,19 @@ socket_diams = [
 
 The format is `"diameter/length/label"`. For example, `"19.86/38/14mm"` means a 19.86 mm diameter socket that is 38 mm long and labeled `14mm`. 
 
+For tapered horizontal sockets, set `Enable_tapered_socket = 1` and use `"bottom_diameter/bottom_length/top_diameter/top_length/label"`:
+
+```scad
+socket_diams = [
+    ["19.86/24/22.5/14/14mm", "17.86/23/20.2/13/13mm"]
+];
+```
+
+This creates a two-section cradle: one section for the bottom diameter and length, and one section for the top diameter and length.
+
 Sockets run front-to-back in shallow curved cradles. Adjust `recess_fraction` to change how deeply they sit; values above `0.5` are intentionally rejected to avoid trapping sockets in an undercut.
+
+The horizontal generator supports `"grid"`, `"free"`, and `"compact"` layouts. Compact mode uses the actual cradle widths and lengths to pull rows closer together where adjacent cradles do not overlap.
 
 </details>
 
@@ -69,11 +122,12 @@ Sockets run front-to-back in shallow curved cradles. Adjust `recess_fraction` to
 ### Features
 
 ```scad
+Enable_tapered_socket = 0;
 Enabled_magnet = 0;
 Enabled_labels = 0;
 ```
 
-Use `1` to enable a feature and `0` to disable it. Magnet pockets are added beneath every Gridfinity cell. Labels are engraved beside their matching holes.
+Use `1` to enable a feature and `0` to disable it. Magnet pockets are added beneath every Gridfinity cell. Labels are engraved beside their matching holes or cradles.
 
 Optional screw holes are controlled separately:
 
@@ -103,7 +157,7 @@ height = 2;
 - `2` = 14 mm above the base - **Default**
 - `3` = 21 mm above the base
 
-When the holder is shorter than the requested `hole_depth`, the holes are shortened automatically to preserve `floor_thickness`.
+In the vertical generator, when the holder is shorter than the requested `hole_depth`, the holes are shortened automatically to preserve `floor_thickness`.
 
 </details>
 
@@ -186,7 +240,7 @@ label_collision_clearance = 0.5;
 ```
 
 - Increase `fit_clearance` if sockets fit too tightly; decrease it if they are too loose.
-- `hole_depth` is the maximum insertion depth.
+- `hole_depth` is the maximum vertical socket insertion depth.
 - `floor_thickness` is the solid material left beneath each socket.
 - The label settings control text size, engraving depth, socket-to-label spacing, and label collision clearance.
 - In the vertical generator, set `Label_in_socket_hole = 1` to engrave labels in the bottom of each socket hole instead of beside the hole.
