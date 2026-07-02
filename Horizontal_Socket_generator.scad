@@ -2,18 +2,6 @@
 // Sockets lie horizontally in curved cradles. Everything is in mm.
 // Made by Mason Lee and Codex
 
-$fn = 96;                  // Circle segments: higher is smoother but renders slower
-
-// ---- INPUT ----
-// Set switches to 1 to enable them or 0 to disable them.
-Enabled_magnet = 0;        // Add four magnet pockets beneath every grid cell
-Enabled_labels = 0;        // Engrave each socket's label near its cradle
-margin_x = 2;              // Horizontal space around and between cradles
-margin_y = 2;              // Vertical space around cradle rows
-bed_size = "250X250";      // Printer bed size: X width by Y depth
-height = 2;                // Holder height above the base, in 7 mm units
-Alignment = "top_left";    // top_left, top_right, center_left, center, center_right, bottom_left, or bottom_right
-socket_layout = "grid";    // grid, free, or compact
 
 // Each inner list is a row. Use diameter, "diameter/label", or 0 for a gap.
 socket_diams = [
@@ -21,16 +9,31 @@ socket_diams = [
     ["15.85/34/11mm", "13.96/32/10mm", 0]
 ];
 
+
+// ---- INPUT ----
+// Set switches to 1 to enable them or 0 to disable them.
+$fn = 96;                  // Circle segments: higher is smoother but renders slower
+Enabled_magnet = 0;        // Add four magnet pockets beneath every grid cell
+Enabled_labels = 0;        // Engrave each socket's label near its cradle
+margin_x = 2;              // Horizontal space around and between cradles
+margin_y = 2;              // Vertical space around cradle rows
+bed_size = "250X250";      // Printer bed size: X width by Y depth
+height = 2;                // Holder height above the base, in 7 mm units
+Alignment = "top_left";    // top_left, top_right, center_left, center, center_right, bottom_left, or bottom_right
+socket_layout = "grid";    // grid or free
+
+//  ---- Label SETTINGS ----
+label_size = 5;            // OpenSCAD text size in mm
+label_depth = 0.7;         // Label engraving depth in mm
+label_socket_gap = 3;      // Space in mm between a cradle end and its label
+label_collision_clearance = 0.5; // Extra clearance around labels
+
 // ---- SOCKET CRADLE SETTINGS ----
 fit_clearance = 0.6;       // Extra mm added to the cradle diameter
 length_clearance = 1;      // Extra total mm added to the cradle length
 recess_fraction = 0.40;    // Portion of socket diameter recessed into the top
 floor_thickness = 3;       // Solid material left below the deepest cradle
 
-label_size = 5;            // OpenSCAD text size in mm
-label_depth = 0.7;         // Label engraving depth in mm
-label_socket_gap = 3;      // Space in mm between a cradle end and its label
-label_collision_clearance = 0.5; // Extra clearance around labels
 
 // ---- GRIDFINITY SETTINGS ----
 grid = 42;                 // Gridfinity cell pitch in mm
@@ -132,8 +135,10 @@ assert(
     Alignment == "bottom_right",
     "Unknown Alignment value"
 );
-assert(socket_layout == "grid" || socket_layout == "free",
-    "socket_layout must be grid or free");
+assert(
+    socket_layout == "grid" || socket_layout == "free",
+    "socket_layout must be grid or free"
+);
 
 // ---- BUILD ----
 difference() {

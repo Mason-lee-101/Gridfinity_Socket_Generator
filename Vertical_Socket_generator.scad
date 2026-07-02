@@ -2,18 +2,6 @@
 // See Readme.md for complete setup and input instructions.
 // Made by Mason Lee and Codex
 
-$fn = 96;                  // Circle segments: higher is smoother but renders slower
-
-// ---- INPUT ----
-Enable_tapered_socket = 0; // 1 = use "bottomsize/topsize/label" entries
-Enabled_magnet = 0;        // 1 = magnet pockets, 0 = disabled
-Enabled_labels = 0;        // 1 = engraved labels, 0 = disabled
-margin_x = 3;              // Horizontal spacing around sockets
-margin_y = 2;              // Vertical spacing around socket rows
-bed_size = "250X250";      // Printer bed size: X width by Y depth
-height = 2;                // Height above base in 7 mm units
-Alignment = "top_left";    // See Readme.md for alignment choices
-socket_layout = "compact"; // grid, free, or compact
 
 // Each inner list is a row. Use diameter, "diameter/label", or 0 for a gap.
 // If Enable_tapered_socket = 1, strings can use "bottomsize/topsize/label".
@@ -24,15 +12,33 @@ socket_diams = [
     ["24.86/11mm", "24.85/16mm", "24.84/8mm", "24.83/13mm", "24.83/10mm", "24.82/9mm", "24.82/12mm", "24.82/15mm"]
 ];
 
+
+
+// ---- INPUT ----
+$fn = 96;                  // Circle segments: higher is smoother but renders slower
+Enable_tapered_socket = 0; // 1 = use "bottomsize/topsize/label" entries
+Enabled_magnet = 0;        // 1 = magnet pockets, 0 = disabled
+Enabled_labels = 0;        // 1 = engraved labels, 0 = disabled
+margin_x = 3;              // Horizontal spacing around sockets
+margin_y = 2;              // Vertical spacing around socket rows
+bed_size = "250X250";      // Printer bed size: X width by Y depth
+height = 2;                // Height above base in 7 mm units
+Alignment = "top_left";    // See Readme.md for alignment choices
+socket_layout = "compact"; // grid, stagger, free, or compact
+
+// ---- label SETTINGS ----
+Label_in_socket_hole = 0;  // Move the socket label to the inside of the hole.
+label_size = 5;            // Text size
+label_depth = 0.7;         // Engraving depth
+label_hole_gap = 3;        // Space between hole and label
+label_collision_clearance = 0.5; // Extra clearance around labels
+
 // ---- SOCKET SETTINGS ----
 fit_clearance = 0.6;       // Extra hole diameter
 hole_depth = 25;           // Maximum socket depth
 floor_thickness = 3;       // Material beneath socket holes
 
-label_size = 5;            // Text size
-label_depth = 0.7;         // Engraving depth
-label_hole_gap = 3;        // Space between hole and label
-label_collision_clearance = 0.5; // Extra clearance around labels
+
 
 // ---- GRIDFINITY SETTINGS ----
 grid = 42;                 // Gridfinity cell pitch
@@ -79,11 +85,15 @@ grid_pitch_y = layout_max_d + margin_y + label_band();
 
 required_x = socket_layout == "grid"
     ? cols * layout_max_w + (cols + 1) * margin_x
-    : max([for (r = [0 : rows - 1]) row_width(r)]);
+    : socket_layout == "stagger"
+        ? max([for (r = [0 : rows - 1]) stagger_row_width(r)])
+        : max([for (r = [0 : rows - 1]) row_width(r)]);
 required_y = socket_layout == "grid"
     ? rows * layout_max_d + (rows + 1) * margin_y +
         rows * label_band()
-    : list_sum([for (r = [0 : rows - 1]) row_height(r)]) + margin_y;
+    : socket_layout == "stagger"
+        ? stagger_required_y()
+        : list_sum([for (r = [0 : rows - 1]) row_height(r)]) + margin_y;
 base_cols = max(1, ceil((required_x + 0.5) / grid));
 base_rows = max(1, ceil((required_y + 0.5) / grid));
 
@@ -125,8 +135,8 @@ assert(
     "Unknown Alignment value"
 );
 assert(
-    socket_layout == "grid" || socket_layout == "free" ||
-    socket_layout == "compact",
+    socket_layout == "grid" || socket_layout == "stagger" ||
+    socket_layout == "free" || socket_layout == "compact",
     "Unknown socket_layout value"
 );
 
@@ -388,7 +398,7 @@ function row_width(r) =
 // Grid/free reserve a full strip for labels. Compact keeps the labels but lets
 // them use row margins and the spare area created by Gridfinity cell rounding.
 function label_band() =
-    Enabled_labels && socket_layout != "compact"
+    Enabled_labels && !Label_in_socket_hole && socket_layout != "compact"
         ? label_hole_gap + label_size
         : 0;
 
@@ -404,7 +414,7 @@ function label_height() = label_size;
 // Reserve enough horizontal room for both the hole and its engraved label.
 // This lets label_collision_clearance separate adjacent labels, not just rows.
 function entry_width(entry) =
-    Enabled_labels
+    Enabled_labels && !Label_in_socket_hole
         ? max(socket_diameter(entry) + fit_clearance,
             label_width(entry) + label_collision_clearance)
         : socket_diameter(entry) + fit_clearance;
@@ -458,7 +468,7 @@ function compact_label_clearance(r, label_c, hole_c) =
         label_collision_clearance;
 
 function compact_label_step(r) =
-    !Enabled_labels || r >= rows - 1 ? 0 :
+    !Enabled_labels || Label_in_socket_hole || r >= rows - 1 ? 0 :
     let(clearances = [
         for (label_c = [0 : len(socket_diams[r]) - 1])
             for (hole_c = [0 : len(socket_diams[r + 1]) - 1])
@@ -471,7 +481,7 @@ function compact_label_step(r) =
 
 function row_height(r) =
     socket_layout == "compact"
-        ? r == rows - 1 && Enabled_labels
+        ? r == rows - 1 && Enabled_labels && !Label_in_socket_hole
             ? row_max_d(r) + max(margin_y,
                 label_hole_gap + label_height())
             : max(row_max_d(r) + margin_y, compact_label_step(r))
@@ -487,10 +497,57 @@ function widths_before(r, c, i = 0) =
 function heights_before(r, i = 0) =
     i >= r ? 0 : row_height(i) + heights_before(r, i + 1);
 
+function stagger_offset(r) =
+    r % 2 == 1 ? grid_pitch_x / 2 : 0;
+
+function stagger_row_width(r) =
+    row_width(r) + stagger_offset(r);
+
+function stagger_socket_local_x(r, c) =
+    stagger_offset(r) + margin_x + widths_before(r, c) +
+        entry_width(socket_diams[r][c]) / 2;
+
+function stagger_pair_clearance(r, c, next_c) =
+    let(
+        a = socket_diameter(socket_diams[r][c]) + fit_clearance,
+        b = socket_diameter(socket_diams[r + 1][next_c]) + fit_clearance,
+        min_center = a / 2 + b / 2 + margin_y,
+        dx = abs(stagger_socket_local_x(r, c) -
+            stagger_socket_local_x(r + 1, next_c))
+    )
+    dx >= min_center ? 0 :
+        sqrt(min_center * min_center - dx * dx);
+
+function stagger_pair_step(r) =
+    r >= rows - 1 ? 0 :
+    Enabled_labels && !Label_in_socket_hole
+        ? row_max_d(r) / 2 + row_max_d(r + 1) / 2 +
+            label_band() + margin_y
+        : let(clearances = [
+            for (c = [0 : len(socket_diams[r]) - 1])
+                for (next_c = [0 : len(socket_diams[r + 1]) - 1])
+                    if (socket_diameter(socket_diams[r][c]) > 0 &&
+                        socket_diameter(socket_diams[r + 1][next_c]) > 0)
+                        stagger_pair_clearance(r, c, next_c)
+        ])
+        len(clearances) == 0 ? row_max_d(r) / 2 + row_max_d(r + 1) / 2 +
+            margin_y : max(clearances);
+
+function stagger_steps_before(r, i = 0) =
+    i >= r ? 0 : stagger_pair_step(i) + stagger_steps_before(r, i + 1);
+
+function stagger_required_y() =
+    rows == 0 ? 0 :
+        margin_y + row_max_d(0) / 2 +
+        stagger_steps_before(rows - 1) +
+        row_max_d(rows - 1) / 2 + margin_y;
+
 function socket_x(r, c) =
     socket_layout == "grid"
         ? content_left(required_x) + margin_x + layout_max_w / 2 +
             c * grid_pitch_x
+        : socket_layout == "stagger"
+            ? content_left(required_x) + stagger_socket_local_x(r, c)
         : row_left(r) + margin_x + widths_before(r, c) +
             entry_width(socket_diams[r][c]) / 2;
 
@@ -502,6 +559,9 @@ function socket_y(r, c) =
     socket_layout == "grid"
         ? content_top() - margin_y - layout_max_d / 2 -
             r * grid_pitch_y
+        : socket_layout == "stagger"
+            ? content_top() - margin_y - row_max_d(0) / 2 -
+                stagger_steps_before(r)
         : Alignment == "top_left" || Alignment == "top_right"
             ? row_top - diameter / 2
             : Alignment == "bottom_left" || Alignment == "bottom_right"
@@ -566,12 +626,18 @@ module engraved_labels() {
             if (d > 0) {
                 translate([
                     socket_x(r, c),
-                    socket_y(r, c) - (d + fit_clearance) / 2 - label_hole_gap,
-                    total_h - label_depth
+                    Label_in_socket_hole
+                        ? socket_y(r, c)
+                        : socket_y(r, c) -
+                            (d + fit_clearance) / 2 - label_hole_gap,
+                    Label_in_socket_hole
+                        ? total_h - effective_hole_depth - label_depth
+                        : total_h - label_depth
                 ])
                     linear_extrude(label_depth + 0.1)
                         text(socket_label(entry), size = label_size,
-                            halign = "center", valign = "top");
+                            halign = "center",
+                            valign = Label_in_socket_hole ? "center" : "top");
             }
         }
     }

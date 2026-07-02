@@ -133,9 +133,39 @@ Alignment positions the complete socket layout inside the Gridfinity-sized holde
 socket_layout = "grid";
 ```
 
-- `"grid"` gives every socket an equally sized position based on the largest socket. Use it for straight, evenly aligned rows.
-- `"free"` uses each socket's actual width while retaining normal row spacing.
-- `"compact"` packs sockets and rows tightly and accounts for label clearance.
+- `"grid"` gives every socket an equally sized position based on the largest socket. Use it for straight, evenly aligned rows and columns.
+
+```text
+Row 1:  O   O   O   O
+Row 2:  O   O   O   O
+Row 3:  O   O   O   O
+Row 4:  O   O   O   O
+```
+
+- `"stagger"` is available in the vertical generator. It shifts every other row by half of the largest socket pitch and reduces row spacing where the sockets can nest without touching.
+
+```text
+Row 1:  O   O   O   O
+Row 2:    O   O   O   O
+Row 3:  O   O   O   O
+Row 4:    O   O   O   O
+```
+
+- `"free"` uses each socket's actual width while retaining normal row spacing. Rows stay straight, but small sockets do not consume the same width as large sockets.
+
+```text
+Row 1:  O     O    O
+Row 2:  O  O      O
+Row 3:  O    O  O
+```
+
+- `"compact"` packs sockets and rows tightly and accounts for label clearance. This is usually the smallest layout when you want the generator to remove unused space.
+
+```text
+Row 1:  O     O    O
+Row 2:  O  O      O
+Row 3:   O    O  O
+```
 </details>
 
 ## Socket and label Settings
@@ -149,6 +179,7 @@ floor_thickness = 3;
 
 label_size = 5;
 label_depth = 0.7;
+Label_in_socket_hole = 0; // Vertical generator
 label_hole_gap = 3;    // Vertical generator
 label_socket_gap = 3;  // Horizontal generator
 label_collision_clearance = 0.5;
@@ -158,6 +189,7 @@ label_collision_clearance = 0.5;
 - `hole_depth` is the maximum insertion depth.
 - `floor_thickness` is the solid material left beneath each socket.
 - The label settings control text size, engraving depth, socket-to-label spacing, and label collision clearance.
+- In the vertical generator, set `Label_in_socket_hole = 1` to engrave labels in the bottom of each socket hole instead of beside the hole.
 
 Print a small test holder before generating a large set, since socket measurements and printer tolerances vary.
 </details>
