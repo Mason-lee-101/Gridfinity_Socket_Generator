@@ -18,7 +18,7 @@ socket_diams = [
 $fn = 96;                  // Circle segments: higher is smoother but renders slower
 Enable_tapered_socket = 0; // 1 = use "bottomsize/topsize/label" entries
 Enabled_magnet = 0;        // 1 = magnet pockets, 0 = disabled
-Enabled_labels = 0;        // 1 = engraved labels, 0 = disabled
+Enabled_labels = 1;        // 1 = engraved labels, 0 = disabled
 margin_x = 3;              // Horizontal spacing around sockets
 margin_y = 2;              // Vertical spacing around socket rows
 bed_size = "250X250";      // Printer bed size: X width by Y depth
@@ -28,6 +28,7 @@ socket_layout = "compact"; // grid, stagger, free, or compact
 
 // ---- label SETTINGS ----
 Label_in_socket_hole = 0;  // Move the socket label to the inside of the hole.
+label_rotation = 0;        // Rotate labels in degrees. 0, 90, 180, and 270 are layout-aware.
 label_size = 5;            // Text size
 label_depth = 0.7;         // Engraving depth
 label_hole_gap = 3;        // Space between hole and label
@@ -399,17 +400,58 @@ function row_width(r) =
 // them use row margins and the spare area created by Gridfinity cell rounding.
 function label_band() =
     Enabled_labels && !Label_in_socket_hole && socket_layout != "compact"
-        ? label_hole_gap + label_size
+        ? label_hole_gap + label_max_height()
         : 0;
 
 // Approximate OpenSCAD's proportional text width for compact collision tests.
 // A small safety factor keeps labels clear across typical sans-serif fonts.
-function label_width(entry) =
-    len(socket_label(entry)) * label_size * 0.65;
+function label_text_width(entry) =
+    len(socket_label(entry)) * label_text_size(entry) * 0.65;
 
-// Reserve the nominal text height so font differences cannot consume the
-// compact-layout safety clearance.
-function label_height() = label_size;
+function label_width(entry) =
+    label_rotated_sideways()
+        ? label_text_size(entry)
+        : label_text_width(entry);
+
+function label_height(entry) =
+    label_rotated_sideways()
+        ? label_text_width(entry)
+        : label_text_size(entry);
+
+function label_max_height() =
+    max([
+        for (row = socket_diams)
+            for (entry = row)
+                if (socket_diameter(entry) > 0)
+                    label_height(entry)
+    ]);
+
+function row_label_height(r) =
+    max([
+        for (entry = socket_diams[r])
+            if (socket_diameter(entry) > 0)
+                label_height(entry)
+    ]);
+
+function label_rotated_sideways() =
+    label_rotation == 90 || label_rotation == -90 ||
+    label_rotation == 270 || label_rotation == -270;
+
+function label_uses_center_anchor() =
+    label_rotation != 0 && label_rotation != 360 && label_rotation != -360;
+
+function label_text_size(entry) =
+    Label_in_socket_hole
+        ? let(
+            label = socket_label(entry),
+            available = max(
+                0.1,
+                socket_hole_diameter(entry) + fit_clearance -
+                    label_collision_clearance * 2
+            )
+        )
+        min(label_size, available, available / max(1, len(label) * 0.65))
+        : label_size;
 
 // Reserve enough horizontal room for both the hole and its engraved label.
 // This lets label_collision_clearance separate adjacent labels, not just rows.
@@ -456,7 +498,7 @@ function compact_socket_y_from_row_top(r, c) =
 function compact_label_bottom(r, c) =
     compact_socket_y_from_row_top(r, c) -
         (socket_diameter(socket_diams[r][c]) + fit_clearance) / 2 -
-        label_hole_gap - label_height();
+        label_hole_gap - label_height(socket_diams[r][c]);
 
 function compact_hole_top(r, c) =
     compact_socket_y_from_row_top(r, c) +
@@ -483,7 +525,7 @@ function row_height(r) =
     socket_layout == "compact"
         ? r == rows - 1 && Enabled_labels && !Label_in_socket_hole
             ? row_max_d(r) + max(margin_y,
-                label_hole_gap + label_height())
+                label_hole_gap + row_label_height(r))
             : max(row_max_d(r) + margin_y, compact_label_step(r))
         : row_max_d(r) + margin_y + label_band();
 
@@ -628,6 +670,10 @@ module engraved_labels() {
                     socket_x(r, c),
                     Label_in_socket_hole
                         ? socket_y(r, c)
+                        : label_uses_center_anchor()
+                            ? socket_y(r, c) -
+                                (d + fit_clearance) / 2 - label_hole_gap -
+                                label_height(entry) / 2
                         : socket_y(r, c) -
                             (d + fit_clearance) / 2 - label_hole_gap,
                     Label_in_socket_hole
@@ -635,9 +681,13 @@ module engraved_labels() {
                         : total_h - label_depth
                 ])
                     linear_extrude(label_depth + 0.1)
-                        text(socket_label(entry), size = label_size,
-                            halign = "center",
-                            valign = Label_in_socket_hole ? "center" : "top");
+                        rotate([0, 0, label_rotation])
+                            text(socket_label(entry),
+                                size = label_text_size(entry),
+                                halign = "center",
+                                valign = Label_in_socket_hole ||
+                                    label_uses_center_anchor()
+                                    ? "center" : "top");
             }
         }
     }

@@ -17,7 +17,7 @@ socket_diams = [
 $fn = 96;                  // Circle segments: higher is smoother but renders slower
 Enable_tapered_socket = 0; // 1 = use "bottom_d/bottom_l/top_d/top_l/label" entries
 Enabled_magnet = 0;        // Add four magnet pockets beneath every grid cell
-Enabled_labels = 0;        // Engrave each socket's label near its cradle
+Enabled_labels = 1;        // Engrave each socket's label near its cradle
 margin_x = 2;              // Horizontal space around and between cradles
 margin_y = 2;              // Vertical space around cradle rows
 bed_size = "250X250";      // Printer bed size: X width by Y depth
@@ -26,6 +26,12 @@ Alignment = "top_left";    // top_left, top_right, center_left, center, center_r
 socket_layout = "grid";    // grid, free, or compact
 
 //  ---- Label SETTINGS ----
+Label_in_socket_cradle = 0; // Move the socket label to the inside of the cradle.
+label_rotation = 0;        // Rotate outside labels. 0, 90, 180, and 270 are layout-aware.
+label_cradle_rotation = 0; // 0 = across cradle, 90 = along cradle.
+label_cradle_scale = 0.75; // Shrink inside-cradle labels for the flat pocket.
+label_cradle_pocket_margin = 3; // Pocket is this much larger than the label.
+label_cradle_pocket_depth = 1.2; // Depth of the flat-bottom label pocket.
 label_size = 5;            // OpenSCAD text size in mm
 label_depth = 0.7;         // Label engraving depth in mm
 label_socket_gap = 3;      // Space in mm between a cradle end and its label
@@ -133,6 +139,9 @@ assert(
 );
 assert(recess_fraction > 0 && recess_fraction <= 0.5,
     "recess_fraction must be greater than 0 and no more than 0.5");
+assert(!Label_in_socket_cradle ||
+    floor_thickness > label_cradle_pocket_depth + label_depth,
+    "floor_thickness must be greater than label_cradle_pocket_depth plus label_depth");
 assert(
     Alignment == "top_left" || Alignment == "top_right" ||
     Alignment == "center_left" || Alignment == "center" ||
@@ -427,13 +436,95 @@ function effective_recess_d(diameter) =
     );
 
 // ---- LAYOUT HELPERS ----
-function label_band() = Enabled_labels ? label_socket_gap + label_size : 0;
+function label_band() =
+    Enabled_labels && !Label_in_socket_cradle
+        ? label_socket_gap + label_max_height()
+        : 0;
+
+function label_text_width(entry) =
+    len(socket_label(entry)) * label_text_size(entry) * 0.8;
 
 function label_width(entry) =
-    len(socket_label(entry)) * label_size * 0.65;
+    !Label_in_socket_cradle && label_rotated_sideways()
+        ? label_text_size(entry)
+        : label_text_width(entry);
+
+function label_height(entry) =
+    !Label_in_socket_cradle && label_rotated_sideways()
+        ? label_text_width(entry)
+        : label_text_size(entry);
+
+function label_max_height() =
+    max([
+        for (row = socket_diams)
+            for (entry = row)
+                if (socket_diameter(entry) > 0)
+                    label_height(entry)
+    ]);
+
+function label_rotated_sideways() =
+    label_rotation == 90 || label_rotation == -90 ||
+    label_rotation == 270 || label_rotation == -270;
+
+function label_uses_center_anchor() =
+    label_rotation != 0 && label_rotation != 360 && label_rotation != -360;
+
+function label_text_size(entry) =
+    Label_in_socket_cradle
+        ? let(
+            label = socket_label(entry),
+            lengthwise = label_cradle_lengthwise(),
+            available_w = max(
+                0.1,
+                socket_diameter(entry) + fit_clearance -
+                    label_cradle_pocket_margin
+            ),
+            available_l = max(
+                0.1,
+                socket_length(entry) + length_clearance -
+                    label_cradle_pocket_margin
+            )
+        )
+        min(
+            label_size,
+            lengthwise ? available_w : available_l,
+            (lengthwise ? available_l : available_w) /
+                max(1, len(label) * 0.8)
+        ) * label_cradle_scale
+        : label_size;
+
+function label_cradle_lengthwise() =
+    label_cradle_rotation == 90 || label_cradle_rotation == -90 ||
+    label_cradle_rotation == 270 || label_cradle_rotation == -270;
+
+function label_cradle_pocket_width(entry) =
+    label_cradle_lengthwise()
+        ? label_cradle_max_height() + label_cradle_pocket_margin
+        : label_cradle_max_width() + label_cradle_pocket_margin;
+
+function label_cradle_pocket_length(entry) =
+    label_cradle_lengthwise()
+        ? label_cradle_max_width() + label_cradle_pocket_margin
+        : label_cradle_max_height() + label_cradle_pocket_margin;
+
+function label_cradle_max_width() =
+    max([
+        for (row = socket_diams)
+            for (entry = row)
+                if (socket_diameter(entry) > 0)
+                    label_text_width(entry)
+    ]);
+
+function label_cradle_max_height() =
+    max([
+        for (row = socket_diams)
+            for (entry = row)
+                if (socket_diameter(entry) > 0)
+                    label_text_size(entry)
+    ]);
 
 function entry_width(entry) =
-    Enabled_labels
+    Enabled_labels && !Label_in_socket_cradle
         ? max(socket_diameter(entry) + fit_clearance,
             label_width(entry) + label_collision_clearance)
         : socket_diameter(entry) + fit_clearance;
@@ -495,7 +586,7 @@ function compact_pair_clearance(r, c, next_c) =
 
 function compact_pair_step(r) =
     r >= rows - 1 ? 0 :
-    Enabled_labels
+    Enabled_labels && !Label_in_socket_cradle
         ? row_max_l(r) / 2 + row_max_l(r + 1) / 2 +
             label_band() + margin_y
         : let(clearances = [
@@ -566,20 +657,58 @@ module engraved_labels() {
             entry = socket_diams[r][c];
 
             if (socket_diameter(entry) > 0) {
-                translate([
-                    socket_x(r, c),
-                    socket_y(r) -
-                        (socket_length(entry) + length_clearance) / 2 -
-                        label_socket_gap,
-                    total_h - label_depth
-                ])
-                    linear_extrude(label_depth + 0.1)
-                        text(
-                            socket_label(entry),
-                            size = label_size,
-                            halign = "center",
-                            valign = "top"
-                        );
+                if (Label_in_socket_cradle) {
+                    translate([
+                        socket_x(r, c) -
+                            label_cradle_pocket_width(entry) / 2,
+                        socket_y(r) -
+                            label_cradle_pocket_length(entry) / 2,
+                        total_h - effective_recess(entry) -
+                            label_cradle_pocket_depth
+                    ])
+                        cube([
+                            label_cradle_pocket_width(entry),
+                            label_cradle_pocket_length(entry),
+                            label_cradle_pocket_depth +
+                                effective_recess(entry) + 0.1
+                        ]);
+
+                    translate([
+                        socket_x(r, c),
+                        socket_y(r),
+                        total_h - effective_recess(entry) -
+                            label_cradle_pocket_depth - label_depth
+                    ])
+                        linear_extrude(label_depth + 0.1)
+                            rotate([0, 0, label_cradle_rotation])
+                                text(
+                                    socket_label(entry),
+                                    size = label_text_size(entry),
+                                    halign = "center",
+                                    valign = "center"
+                                );
+                } else {
+                    translate([
+                        socket_x(r, c),
+                        label_uses_center_anchor()
+                            ? socket_y(r) -
+                                (socket_length(entry) + length_clearance) / 2 -
+                                label_socket_gap - label_height(entry) / 2
+                            : socket_y(r) -
+                                (socket_length(entry) + length_clearance) / 2 -
+                                label_socket_gap,
+                        total_h - label_depth
+                    ])
+                        linear_extrude(label_depth + 0.1)
+                            rotate([0, 0, label_rotation])
+                                text(
+                                    socket_label(entry),
+                                    size = label_text_size(entry),
+                                    halign = "center",
+                                    valign = label_uses_center_anchor()
+                                        ? "center" : "top"
+                                );
+                }
             }
         }
     }
