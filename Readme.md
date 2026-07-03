@@ -234,9 +234,8 @@ floor_thickness = 3;
 label_size = 5;
 label_depth = 0.7;
 Label_in_socket_hole = 0; // Vertical generator
-label_rotation = 0; // Vertical labels and horizontal outside labels
+label_rotation = 0; // Label rotation
 Label_in_socket_cradle = 0; // Horizontal generator
-label_cradle_rotation = 0; // Horizontal inside-cradle labels
 label_cradle_scale = 0.75; // Horizontal inside-cradle label size
 label_cradle_pocket_margin = 1; // Horizontal pocket extra size
 label_cradle_pocket_depth = 1.2; // Horizontal flat label pocket
@@ -250,9 +249,9 @@ label_collision_clearance = 0.5;
 - `floor_thickness` is the solid material left beneath each socket.
 - The label settings control text size, engraving depth, socket-to-label spacing, and label collision clearance.
 - In the vertical generator, set `Label_in_socket_hole = 1` to engrave labels in the bottom of each socket hole instead of beside the hole.
-- Use `label_rotation` in the vertical generator, or for horizontal labels outside the cradle, to rotate labels. `0`, `90`, `180`, and `270` degrees are layout-aware.
+- Use `label_rotation` to rotate labels. In the horizontal generator, it controls both outside labels and inside-cradle labels. `0`, `90`, `180`, and `270` degrees are layout-aware.
 - In the horizontal generator, set `Label_in_socket_cradle = 1` to engrave labels in the bottom of each socket cradle instead of beside the cradle.
-- Horizontal inside-cradle labels use a flat rectangular pocket controlled by `label_cradle_pocket_depth`. Set `label_cradle_rotation = 0` to run across the cradle, or `90` to run with the socket length.
+- Horizontal inside-cradle labels use a flat rectangular pocket controlled by `label_cradle_pocket_depth`.
 - The flat pocket is `label_cradle_pocket_margin` larger than the largest rotated label in the holder.
 - Use `label_cradle_scale` to make horizontal inside-cradle labels smaller or larger inside the flat pocket.
 - When `Label_in_socket_hole = 1`, tiny socket holes automatically reduce the engraved text size so the label stays inside the hole. `label_size` is still the maximum text size.

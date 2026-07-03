@@ -28,7 +28,7 @@ socket_layout = "compact"; // grid, stagger, free, or compact
 
 // ---- label SETTINGS ----
 Label_in_socket_hole = 0;  // Move the socket label to the inside of the hole.
-label_rotation = 0;        // Rotate labels in degrees. 0, 90, 180, and 270 are layout-aware.
+label_rotation = 0;        // Rotate labels in degrees. 0, 90, 180, and 270
 label_size = 5;            // Text size
 label_depth = 0.7;         // Engraving depth
 label_hole_gap = 3;        // Space between hole and label

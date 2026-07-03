@@ -27,8 +27,7 @@ socket_layout = "grid";    // grid, free, or compact
 
 //  ---- Label SETTINGS ----
 Label_in_socket_cradle = 0; // Move the socket label to the inside of the cradle.
-label_rotation = 0;        // Rotate outside labels. 0, 90, 180, and 270 are layout-aware.
-label_cradle_rotation = 0; // 0 = across cradle, 90 = along cradle.
+label_rotation = 0;        // Rotate labels in degrees. 0, 90, 180, and 270
 label_cradle_scale = 0.75; // Shrink inside-cradle labels for the flat pocket.
 label_cradle_pocket_margin = 3; // Pocket is this much larger than the label.
 label_cradle_pocket_depth = 1.2; // Depth of the flat-bottom label pocket.
@@ -494,8 +493,8 @@ function label_text_size(entry) =
         : label_size;
 
 function label_cradle_lengthwise() =
-    label_cradle_rotation == 90 || label_cradle_rotation == -90 ||
-    label_cradle_rotation == 270 || label_cradle_rotation == -270;
+    label_rotation == 90 || label_rotation == -90 ||
+    label_rotation == 270 || label_rotation == -270;
 
 function label_cradle_pocket_width(entry) =
     label_cradle_lengthwise()
@@ -680,7 +679,7 @@ module engraved_labels() {
                             label_cradle_pocket_depth - label_depth
                     ])
                         linear_extrude(label_depth + 0.1)
-                            rotate([0, 0, label_cradle_rotation])
+                            rotate([0, 0, label_rotation])
                                 text(
                                     socket_label(entry),
                                     size = label_text_size(entry),
