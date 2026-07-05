@@ -746,16 +746,24 @@ function parseSocketEntry(value) {
 
 function buildLayoutModel(rows, settings) {
   const measuredRows = rows.map((row) => row.map((entry) => measureEntry(entry, settings)));
-  const rowWidths = measuredRows.map((row) => sum(row.map((entry) => entry.width + settings.marginX)));
-  const rowSocketHeights = measuredRows.map((row) => Math.max(...row.map((entry) => entry.height), settings.grid / 2));
-  const rowHeights = rowSocketHeights.map((height) => height + settings.marginY + labelBand(settings));
+  const rowWidths = measuredRows.map((row) => rowWidth(row, settings));
+  const rowHeights = measuredRows.map((row, r) => rowHeight(measuredRows, r, settings));
   const maxWidth = Math.max(...rowWidths, settings.grid);
   const requiredX = settings.socketLayout === "grid"
-    ? Math.max(...measuredRows.map((row) => row.length), 1) * gridPitchX(measuredRows, settings)
+    ? Math.max(...measuredRows.map((row) => row.length), 1) * maxEntryWidth(measuredRows, settings)
+      + (Math.max(...measuredRows.map((row) => row.length), 1) + 1) * settings.marginX
+    : settings.generator === "vertical" && settings.socketLayout === "stagger"
+      ? Math.max(...measuredRows.map((row, r) => rowWidth(row, settings) + staggerOffset(measuredRows, r, settings)), settings.grid)
     : maxWidth;
   const requiredY = settings.socketLayout === "grid"
-    ? measuredRows.length * gridPitchY(measuredRows, settings)
-    : sum(rowHeights);
+    ? measuredRows.length * maxEntryHeight(measuredRows, settings)
+      + (measuredRows.length + 1) * settings.marginY
+      + measuredRows.length * labelBand(measuredRows, settings)
+    : settings.generator === "vertical" && settings.socketLayout === "stagger"
+      ? staggerRequiredY(measuredRows, settings)
+    : settings.generator === "horizontal" && settings.socketLayout === "compact"
+      ? compactRequiredY(measuredRows, settings)
+      : sum(rowHeights) + settings.marginY;
   const baseCols = Math.max(1, Math.ceil((requiredX + 0.5) / settings.grid));
   const baseRows = Math.max(1, Math.ceil((requiredY + 0.5) / settings.grid));
   const bodyX = baseCols * settings.grid - 0.5;
@@ -764,10 +772,9 @@ function buildLayoutModel(rows, settings) {
 
   measuredRows.forEach((row, r) => {
     let cursorX = rowLeft(rowWidths[r], bodyX, settings.alignment)
-      + (settings.socketLayout === "stagger" && r % 2 ? gridPitchX(measuredRows, settings) / 2 : 0);
+      + staggerOffset(measuredRows, r, settings);
     const baseY = rowTop(requiredY, bodyY, settings.alignment)
-      + (settings.socketLayout === "grid" ? r * gridPitchY(measuredRows, settings) : sum(rowHeights.slice(0, r)))
-      + rowSocketHeights[r] / 2;
+      + socketRowY(measuredRows, rowHeights, r, settings);
 
     row.forEach((entry, c) => {
       if (settings.socketLayout === "grid") {
@@ -801,23 +808,26 @@ function measureEntry(entry, settings) {
 
   const interpreted = interpretEntry(entry, settings);
   const diameter = (Number.isFinite(interpreted.diameter) ? interpreted.diameter : 0) + settings.fitClearance;
+  const label = interpreted.label;
+  const width = entryWidth({ ...entry, label, diameter }, settings);
+
   if (settings.generator === "horizontal") {
     const length = Number.isFinite(interpreted.length) ? interpreted.length : diameter;
     return {
       ...entry,
-      label: interpreted.label,
+      label,
       diameter,
       length: length + settings.lengthClearance,
-      width: diameter,
+      width,
       height: Math.max(length + settings.lengthClearance, diameter),
     };
   }
 
   return {
     ...entry,
-    label: interpreted.label,
+    label,
     diameter,
-    width: diameter + labelWidth({ ...entry, label: interpreted.label }, settings),
+    width,
     height: diameter,
   };
 }
@@ -1002,30 +1012,307 @@ function svgNode(name, attrs, text = "") {
 }
 
 function gridPitchX(rows, settings) {
-  const maxWidth = Math.max(...rows.flat().map((entry) => entry.width), settings.grid / 2);
-  return maxWidth + settings.marginX;
+  return maxEntryWidth(rows, settings) + settings.marginX;
 }
 
 function gridPitchY(rows, settings) {
-  const maxHeight = Math.max(...rows.flat().map((entry) => entry.height), settings.grid / 2);
-  return maxHeight + settings.marginY + labelBand(settings);
+  return maxEntryHeight(rows, settings) + settings.marginY + labelBand(rows, settings);
 }
 
-function labelBand(settings) {
-  if (!settings.labels) return 0;
-  if (settings.generator === "vertical" && settings.labelInsideVertical) return 0;
-  if (settings.generator === "horizontal" && settings.labelInsideHorizontal) return 0;
+function maxEntryWidth(rows, settings) {
+  const widths = rows.flat().filter((entry) => !entry.gap).map((entry) => entry.width);
+  return Math.max(...widths, 0);
+}
+
+function maxEntryHeight(rows, settings) {
+  const heights = rows.flat().filter((entry) => !entry.gap).map((entry) => entry.height);
+  return Math.max(...heights, 0);
+}
+
+function rowWidth(row, settings) {
+  const active = row.filter((entry) => !entry.gap);
+  return sum(active.map((entry) => entry.width)) + settings.marginX * (active.length + 1);
+}
+
+function rowMaxHeight(row, settings) {
+  const heights = row.filter((entry) => !entry.gap).map((entry) => entry.height);
+  return Math.max(...heights, 0);
+}
+
+function rowHeight(rows, index, settings) {
+  const row = rows[index];
+  const height = rowMaxHeight(row, settings);
+  if (settings.generator === "vertical" && settings.socketLayout === "compact") {
+    const outsideLabels = outsideLabelEnabled(settings);
+    const lastRowLabelSpace = settings.labelHoleGap + rowLabelHeight(row, settings);
+    return index === rows.length - 1 && outsideLabels
+      ? height + Math.max(settings.marginY, lastRowLabelSpace)
+      : Math.max(height + settings.marginY, verticalCompactLabelStep(rows, index, settings));
+  }
+  return height + settings.marginY + labelBand(rows, settings);
+}
+
+function rowLabelHeight(row, settings) {
+  const heights = row.filter((entry) => !entry.gap).map((entry) => labelHeight(entry, settings));
+  return Math.max(...heights, 0);
+}
+
+function verticalCompactLabelStep(rows, rowIndex, settings) {
+  if (!outsideLabelEnabled(settings) || rowIndex >= rows.length - 1) return 0;
+  const clearances = [];
+  rows[rowIndex].forEach((entry, labelC) => {
+    if (entry.gap) return;
+    rows[rowIndex + 1].forEach((nextEntry, holeC) => {
+      if (nextEntry.gap || !verticalLabelOverlapsHole(rows, rowIndex, labelC, holeC, settings)) return;
+      clearances.push(verticalCompactLabelClearance(rows, rowIndex, labelC, holeC, settings));
+    });
+  });
+  return clearances.length ? Math.max(...clearances) : 0;
+}
+
+function verticalLabelOverlapsHole(rows, rowIndex, labelC, holeC, settings) {
+  return Math.abs(
+    verticalCompactSocketX(rows, rowIndex, labelC, settings)
+      - verticalCompactSocketX(rows, rowIndex + 1, holeC, settings)
+  ) < labelWidth(rows[rowIndex][labelC], settings) / 2
+    + rows[rowIndex + 1][holeC].diameter / 2
+    + settings.labelCollision;
+}
+
+function verticalCompactLabelClearance(rows, rowIndex, labelC, holeC, settings) {
+  return verticalCompactHoleTop(rows, rowIndex + 1, holeC, settings)
+    - verticalCompactLabelBottom(rows, rowIndex, labelC, settings)
+    + settings.labelCollision;
+}
+
+function verticalCompactSocketX(rows, rowIndex, c, settings) {
+  return compactRowLeft(rowWidth(rows[rowIndex], settings), settings.alignment)
+    + settings.marginX
+    + widthsBefore(rows[rowIndex], c, settings)
+    + rows[rowIndex][c].diameter / 2;
+}
+
+function verticalCompactSocketYFromRowTop(rows, rowIndex, c, settings) {
+  const diameter = rows[rowIndex][c].diameter;
+  if (settings.alignment.startsWith("top")) return -diameter / 2;
+  if (settings.alignment.startsWith("bottom")) return -rowMaxHeight(rows[rowIndex], settings) + diameter / 2;
+  return -rowMaxHeight(rows[rowIndex], settings) / 2;
+}
+
+function verticalCompactLabelBottom(rows, rowIndex, c, settings) {
+  return verticalCompactSocketYFromRowTop(rows, rowIndex, c, settings)
+    - rows[rowIndex][c].diameter / 2
+    - settings.labelHoleGap
+    - labelHeight(rows[rowIndex][c], settings);
+}
+
+function verticalCompactHoleTop(rows, rowIndex, c, settings) {
+  return verticalCompactSocketYFromRowTop(rows, rowIndex, c, settings)
+    + rows[rowIndex][c].diameter / 2;
+}
+
+function socketRowY(rows, rowHeights, index, settings) {
+  if (settings.socketLayout === "grid") {
+    return settings.marginY + maxEntryHeight(rows, settings) / 2
+      + index * gridPitchY(rows, settings);
+  }
+
+  if (settings.generator === "horizontal" && settings.socketLayout === "compact") {
+    return settings.marginY + rowMaxHeight(rows[0], settings) / 2
+      + compactStepsBefore(rows, index, settings);
+  }
+
+  if (settings.generator === "vertical" && settings.socketLayout === "stagger") {
+    return settings.marginY + rowMaxHeight(rows[0], settings) / 2
+      + staggerStepsBefore(rows, index, settings);
+  }
+
+  return settings.marginY + sum(rowHeights.slice(0, index))
+    + rowMaxHeight(rows[index], settings) / 2;
+}
+
+function staggerOffset(rows, index, settings) {
+  return settings.generator === "vertical" && settings.socketLayout === "stagger" && index % 2 === 1
+    ? gridPitchX(rows, settings) / 2
+    : 0;
+}
+
+function staggerRequiredY(rows, settings) {
+  if (!rows.length) return 0;
+  return settings.marginY
+    + rowMaxHeight(rows[0], settings) / 2
+    + staggerStepsBefore(rows, rows.length - 1, settings)
+    + rowMaxHeight(rows[rows.length - 1], settings) / 2
+    + settings.marginY;
+}
+
+function staggerStepsBefore(rows, index, settings) {
+  let total = 0;
+  for (let r = 0; r < index; r += 1) {
+    total += staggerPairStep(rows, r, settings);
+  }
+  return total;
+}
+
+function staggerPairStep(rows, rowIndex, settings) {
+  if (rowIndex >= rows.length - 1) return 0;
+  if (outsideLabelEnabled(settings)) {
+    return rowMaxHeight(rows[rowIndex], settings) / 2
+      + rowMaxHeight(rows[rowIndex + 1], settings) / 2
+      + labelBand(rows, settings)
+      + settings.marginY;
+  }
+
+  const clearances = [];
+  rows[rowIndex].forEach((entry, c) => {
+    if (entry.gap) return;
+    rows[rowIndex + 1].forEach((nextEntry, nextC) => {
+      if (nextEntry.gap) return;
+      clearances.push(staggerPairClearance(rows, rowIndex, c, nextC, settings));
+    });
+  });
+
+  return clearances.length
+    ? Math.max(...clearances)
+    : rowMaxHeight(rows[rowIndex], settings) / 2
+      + rowMaxHeight(rows[rowIndex + 1], settings) / 2
+      + settings.marginY;
+}
+
+function staggerPairClearance(rows, rowIndex, c, nextC, settings) {
+  const a = rows[rowIndex][c].diameter;
+  const b = rows[rowIndex + 1][nextC].diameter;
+  const minCenter = a / 2 + b / 2 + settings.marginY;
+  const dx = Math.abs(
+    staggerSocketLocalX(rows, rowIndex, c, settings)
+      - staggerSocketLocalX(rows, rowIndex + 1, nextC, settings)
+  );
+  return dx >= minCenter ? 0 : Math.sqrt(minCenter * minCenter - dx * dx);
+}
+
+function staggerSocketLocalX(rows, rowIndex, c, settings) {
+  return staggerOffset(rows, rowIndex, settings)
+    + settings.marginX
+    + widthsBefore(rows[rowIndex], c, settings)
+    + rows[rowIndex][c].width / 2;
+}
+
+function compactRequiredY(rows, settings) {
+  if (!rows.length) return 0;
+  return settings.marginY
+    + rowMaxHeight(rows[0], settings) / 2
+    + compactStepsBefore(rows, rows.length - 1, settings)
+    + rowMaxHeight(rows[rows.length - 1], settings) / 2
+    + settings.marginY
+    + labelBand(rows, settings);
+}
+
+function compactStepsBefore(rows, index, settings) {
+  let total = 0;
+  for (let r = 0; r < index; r += 1) {
+    total += compactPairStep(rows, r, settings);
+  }
+  return total;
+}
+
+function compactPairStep(rows, rowIndex, settings) {
+  if (rowIndex >= rows.length - 1) return 0;
+  if (outsideLabelEnabled(settings)) {
+    return rowMaxHeight(rows[rowIndex], settings) / 2
+      + rowMaxHeight(rows[rowIndex + 1], settings) / 2
+      + labelBand(rows, settings)
+      + settings.marginY;
+  }
+
+  const clearances = [];
+  rows[rowIndex].forEach((entry, c) => {
+    if (entry.gap) return;
+    rows[rowIndex + 1].forEach((nextEntry, nextC) => {
+      if (nextEntry.gap) return;
+      clearances.push(compactPairClearance(rows, rowIndex, c, nextC, settings));
+    });
+  });
+
+  return clearances.length
+    ? Math.max(...clearances)
+    : rowMaxHeight(rows[rowIndex], settings) / 2
+      + rowMaxHeight(rows[rowIndex + 1], settings) / 2
+      + settings.marginY;
+}
+
+function compactPairClearance(rows, rowIndex, c, nextC, settings) {
+  return compactCradlesOverlapX(rows, rowIndex, c, nextC, settings)
+    ? rows[rowIndex][c].height / 2
+      + rows[rowIndex + 1][nextC].height / 2
+      + settings.marginY
+    : 0;
+}
+
+function compactCradlesOverlapX(rows, rowIndex, c, nextC, settings) {
+  return Math.abs(
+    compactSocketLocalX(rows, rowIndex, c, settings)
+      - compactSocketLocalX(rows, rowIndex + 1, nextC, settings)
+  ) < rows[rowIndex][c].diameter / 2
+    + rows[rowIndex + 1][nextC].diameter / 2
+    + settings.marginX;
+}
+
+function compactSocketLocalX(rows, rowIndex, c, settings) {
+  return compactRowLeft(rowWidth(rows[rowIndex], settings), settings.alignment)
+    + settings.marginX
+    + widthsBefore(rows[rowIndex], c, settings)
+    + rows[rowIndex][c].width / 2;
+}
+
+function compactRowLeft(width, alignment) {
+  if (alignment.endsWith("left")) return 0;
+  if (alignment.endsWith("right")) return -width;
+  return -width / 2;
+}
+
+function widthsBefore(row, index, settings) {
+  return sum(row.slice(0, index)
+    .filter((entry) => !entry.gap)
+    .map((entry) => entry.width + settings.marginX));
+}
+
+function outsideLabelEnabled(settings) {
+  if (!settings.labels) return false;
+  if (settings.generator === "vertical") return !settings.labelInsideVertical;
+  return !settings.labelInsideHorizontal;
+}
+
+function labelBand(rows, settings) {
+  if (!outsideLabelEnabled(settings)) return 0;
+  if (settings.generator === "vertical" && settings.socketLayout === "compact") return 0;
+  const labels = rows.flat().filter((entry) => !entry.gap && entry.label);
   const labelHeight = settings.labelRotation === 90 || settings.labelRotation === 270
-    ? settings.labelSize * 2.6
-    : settings.labelSize * 1.45;
+    ? Math.max(...labels.map((entry) => labelTextWidth(entry, settings)), 0)
+    : settings.labelSize;
   const gap = settings.generator === "vertical" ? settings.labelHoleGap : settings.labelSocketGap;
-  return labelHeight + gap + settings.labelCollision;
+  return labelHeight + gap;
 }
 
 function labelWidth(entry, settings) {
-  if (!settings.labels || !entry.label) return 0;
-  if (settings.labelRotation === 90 || settings.labelRotation === 270) return settings.labelSize * 1.5;
-  return Math.min(entry.label.length * settings.labelSize * 0.55, 34);
+  if (!outsideLabelEnabled(settings) || !entry.label) return 0;
+  if (settings.labelRotation === 90 || settings.labelRotation === 270) return settings.labelSize;
+  return labelTextWidth(entry, settings);
+}
+
+function labelHeight(entry, settings) {
+  if (!outsideLabelEnabled(settings) || !entry.label) return 0;
+  if (settings.labelRotation === 90 || settings.labelRotation === 270) return labelTextWidth(entry, settings);
+  return settings.labelSize;
+}
+
+function labelTextWidth(entry, settings) {
+  const scale = settings.generator === "horizontal" ? 0.8 : 0.65;
+  return String(entry.label || "").length * settings.labelSize * scale;
+}
+
+function entryWidth(entry, settings) {
+  if (!outsideLabelEnabled(settings)) return entry.diameter;
+  return Math.max(entry.diameter, labelWidth(entry, settings) + settings.labelCollision);
 }
 
 function rowLeft(rowWidth, bodyX, alignment) {

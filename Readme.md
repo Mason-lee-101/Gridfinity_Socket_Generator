@@ -66,24 +66,19 @@ Tips:
 <details>
 <summary>Click to expand</summary>
 
+![CSV tool web page](./Assets/Static_site.png)
+![Layout tool web page](./Assets/Static_site_layout_preview.png)
 The `Site` folder contains a static helper page for converting socket CSV files into `socket_diams` arrays and previewing the Gridfinity layout before opening OpenSCAD.
 
 1. Open `Site/index.html` in a browser.
 2. Use **CSV arrays** to upload `socket_template.csv` or a compatible socket CSV.
 3. Choose the output format that matches the generator you want to use.
-4. Download the generated text or copy the `socket_diams` block into the SCAD file.
+4. Download the generated text or copy the `socket_diams` 
 5. Use **Layout preview** to test layout, label, magnet, and screw-hole settings.
 6. Copy the replacement text into `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad`.
 
 The static site preserves the socket labels from your CSV. It does not add `mm` to metric labels automatically, so enter labels exactly as you want them engraved.
 
-In the layout preview, the **Screw holes** switch writes:
-
-```scad
-Enabled_screw_holes = 1;
-```
-
-Leave it off to generate `Enabled_screw_holes = 0;`.
 
 </details>
 
