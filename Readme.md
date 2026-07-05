@@ -13,10 +13,10 @@ A pair of customizable OpenSCAD generators for vertical and horizontal Gridfinit
 
 ## Quick start
 1. Measure the sockets that you want to create a holder for.
-2. Open `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad` in OpenSCAD.
-3. Adjust the settings near the top of the file.
-4. Replace the example `socket_diams` rows with your socket measurements.
-5. Select **File > Export > Export as STL**.
+2. Use Static Site to Adjust the settings and layout of search socket set.
+3. Open `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad` in OpenSCAD.
+5. Replace the example `socket_diams` / `settings` with the output from the Static Site.
+6. Select **File > Export > Export as STL**.
 
 > Note: All measurements in the generator are millimeters.
 
