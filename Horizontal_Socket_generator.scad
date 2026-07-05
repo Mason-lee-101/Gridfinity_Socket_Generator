@@ -18,6 +18,7 @@ $fn = 96;                  // Circle segments: higher is smoother but renders sl
 Enable_tapered_socket = 0; // 1 = use "bottom_d/bottom_l/top_d/top_l/label" entries
 Enabled_magnet = 0;        // Add four magnet pockets beneath every grid cell
 Enabled_labels = 1;        // Engrave each socket's label near its cradle
+Enabled_screw_holes = 0;   // 1 = screw pockets, 0 = disabled
 margin_x = 2;              // Horizontal space around and between cradles
 margin_y = 2;              // Vertical space around cradle rows
 bed_size = "250X250";      // Printer bed size: X width by Y depth
@@ -58,7 +59,6 @@ base_r_bottom = 0.8;       // Bottom foot corner radius
 magnet_d = 6.2;            // Magnet-pocket diameter
 magnet_h = 2.2;            // Magnet-pocket depth
 
-screw_holes = false;       // true adds four screw holes per grid cell
 screw_d = 3.2;             // Screw-hole diameter
 screw_h = 7;               // Screw-hole depth
 
@@ -171,7 +171,7 @@ difference() {
     if (Enabled_magnet)
         gridfinity_magnet_holes(base_cols, base_rows);
 
-    if (screw_holes)
+    if (Enabled_screw_holes)
         gridfinity_screw_holes(base_cols, base_rows);
 }
 
