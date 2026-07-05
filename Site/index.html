@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Socket CSV Array Builder</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <div class="controls">
+          <div class="top-bar">
+            <div class="brand-block">
+              <p class="eyebrow">Gridfinity Socket Generator</p>
+              <h1>Socket CSV Array Builder</h1>
+            </div>
+            <label class="theme-toggle">
+              <input id="darkMode" type="checkbox">
+              Dark mode
+            </label>
+          </div>
+
+          <div class="tab-bar" role="tablist" aria-label="Site tools">
+            <button class="tab-button active" id="converterTab" type="button" role="tab" aria-selected="true" aria-controls="converterPane" data-tab="converter">CSV arrays</button>
+            <button class="tab-button" id="layoutTab" type="button" role="tab" aria-selected="false" aria-controls="layoutPane" data-tab="layout">Layout preview</button>
+          </div>
+
+          <div class="tab-pane active" id="converterPane" role="tabpanel" aria-labelledby="converterTab">
+
+          <label class="drop-zone" for="csvFile" id="dropZone">
+            <input id="csvFile" type="file" accept=".csv,text/csv">
+            <span class="drop-icon" aria-hidden="true">+</span>
+            <span class="drop-title">Upload socket CSV</span>
+            <span class="drop-copy">Uses the repo template or the grouped sample CSV layout.</span>
+          </label>
+
+          <div class="control-grid">
+            <label>
+              Output
+              <select id="outputMode">
+                <option value="vertical">Vertical: diameter/label</option>
+                <option value="verticalTapered">Vertical tapered: bottom/top/label</option>
+                <option value="horizontal">Horizontal: diameter/length/label</option>
+                <option value="horizontalTapered">Horizontal tapered: bottom/top diameters and lengths</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="options">
+            <label class="checkbox-row">
+              <input id="metricSuffix" type="checkbox" checked>
+              Add mm to plain metric labels
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="downloadBtn" type="button">Download .txt</button>
+          </div>
+          </div>
+
+          <div class="tab-pane" id="layoutPane" role="tabpanel" aria-labelledby="layoutTab">
+            <section class="option-section">
+              <h2>Generator</h2>
+              <div class="control-grid">
+                <label>
+                  Generator
+                  <select id="previewGenerator">
+                    <option value="vertical">Vertical socket holder</option>
+                    <option value="horizontal">Horizontal socket holder</option>
+                  </select>
+                </label>
+
+                <label>
+                  socket_diams
+                  <textarea class="socket-input" id="layoutInput" spellcheck="false"></textarea>
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section">
+              <h2>Switches</h2>
+              <div class="options">
+                <label class="checkbox-row">
+                  <input id="previewTapered" type="checkbox">
+                  Enable tapered socket
+                </label>
+                <label class="checkbox-row">
+                  <input id="previewMagnets" type="checkbox">
+                  Enabled magnets
+                </label>
+                <label class="checkbox-row">
+                  <input id="previewLabels" type="checkbox" checked>
+                  Enabled labels
+                </label>
+                <label class="checkbox-row">
+                  <input id="previewScrews" type="checkbox">
+                  Screw holes
+                </label>
+                <label class="checkbox-row vertical-only labels-only">
+                  <input id="previewLabelInsideVertical" type="checkbox">
+                  Label in socket hole
+                </label>
+                <label class="checkbox-row horizontal-only labels-only">
+                  <input id="previewLabelInsideHorizontal" type="checkbox">
+                  Label in socket cradle
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section">
+              <h2>Layout</h2>
+              <div class="control-grid two-col">
+                <label>
+                  Layout
+                  <select id="previewLayout">
+                    <option value="compact">compact</option>
+                    <option value="grid">grid</option>
+                    <option value="stagger">stagger</option>
+                    <option value="free">free</option>
+                  </select>
+                </label>
+
+                <label>
+                  Alignment
+                  <select id="previewAlignment">
+                    <option value="top_left">top_left</option>
+                    <option value="top_right">top_right</option>
+                    <option value="center_left">center_left</option>
+                    <option value="center">center</option>
+                    <option value="center_right">center_right</option>
+                    <option value="bottom_left">bottom_left</option>
+                    <option value="bottom_right">bottom_right</option>
+                  </select>
+                </label>
+
+                <label>
+                  Bed size
+                  <input id="previewBed" type="text" value="250X250">
+                </label>
+
+                <label>
+                  Height units
+                  <input id="previewHeight" type="number" value="2" min="1" step="1">
+                </label>
+
+                <label>
+                  Margin X
+                  <input id="previewMarginX" type="number" value="3" step="0.5">
+                </label>
+
+                <label>
+                  Margin Y
+                  <input id="previewMarginY" type="number" value="2" step="0.5">
+                </label>
+
+                <label>
+                  Fit clearance
+                  <input id="previewFit" type="number" value="0.6" step="0.1">
+                </label>
+
+                <label>
+                  Floor thickness
+                  <input id="previewFloor" type="number" value="3" step="0.5">
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section">
+              <h2>Labels</h2>
+              <div class="control-grid two-col">
+                <label>
+                  Label size
+                  <input id="previewLabelSize" type="number" value="5" step="0.5">
+                </label>
+
+                <label>
+                  Label depth
+                  <input id="previewLabelDepth" type="number" value="0.7" step="0.1">
+                </label>
+
+                <label>
+                  Label rotation
+                  <select id="previewLabelRotation">
+                    <option value="0">0</option>
+                    <option value="90">90</option>
+                    <option value="180">180</option>
+                    <option value="270">270</option>
+                  </select>
+                </label>
+
+                <label class="vertical-only">
+                  Label hole gap
+                  <input id="previewLabelHoleGap" type="number" value="3" step="0.5">
+                </label>
+
+                <label class="horizontal-only">
+                  Label socket gap
+                  <input id="previewLabelSocketGap" type="number" value="3" step="0.5">
+                </label>
+
+                <label>
+                  Label collision clearance
+                  <input id="previewLabelCollision" type="number" value="0.5" step="0.1">
+                </label>
+
+                <label class="horizontal-only">
+                  Cradle label scale
+                  <input id="previewCradleScale" type="number" value="0.75" step="0.05">
+                </label>
+
+                <label class="horizontal-only">
+                  Cradle pocket margin
+                  <input id="previewCradlePocketMargin" type="number" value="3" step="0.5">
+                </label>
+
+                <label class="horizontal-only">
+                  Cradle pocket depth
+                  <input id="previewCradlePocketDepth" type="number" value="1.2" step="0.1">
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section vertical-only">
+              <h2>Vertical Sockets</h2>
+              <div class="control-grid two-col">
+                <label>
+                  Hole depth
+                  <input id="previewHoleDepth" type="number" value="25" step="1">
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section horizontal-only">
+              <h2>Horizontal Sockets</h2>
+              <div class="control-grid two-col">
+                <label>
+                  Length clearance
+                  <input id="previewLengthClearance" type="number" value="1" step="0.1">
+                </label>
+
+                <label>
+                  Recess fraction
+                  <input id="previewRecess" type="number" value="0.4" min="0.01" max="0.5" step="0.01">
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section">
+              <h2>Gridfinity Base</h2>
+              <div class="control-grid two-col">
+                <label>
+                  Grid pitch
+                  <input id="previewGrid" type="number" value="42" step="0.5">
+                </label>
+
+                <label>
+                  Base height
+                  <input id="previewBaseH" type="number" value="7" step="0.5">
+                </label>
+
+                <label>
+                  Base profile height
+                  <input id="previewBaseProfileH" type="number" value="4.75" step="0.25">
+                </label>
+
+                <label>
+                  Base top
+                  <input id="previewBaseTop" type="number" value="41.5" step="0.5">
+                </label>
+
+                <label>
+                  Base bottom
+                  <input id="previewBaseBottom" type="number" value="35.6" step="0.5">
+                </label>
+
+                <label>
+                  Top radius
+                  <input id="previewBaseRTop" type="number" value="3.75" step="0.25">
+                </label>
+
+                <label>
+                  Bottom radius
+                  <input id="previewBaseRBottom" type="number" value="0.8" step="0.1">
+                </label>
+              </div>
+            </section>
+
+            <section class="option-section hardware-section">
+              <h2>Hardware</h2>
+              <div class="control-grid two-col">
+                <label class="magnet-only">
+                  Magnet diameter
+                  <input id="previewMagnetD" type="number" value="6.2" step="0.1">
+                </label>
+
+                <label class="magnet-only">
+                  Magnet depth
+                  <input id="previewMagnetH" type="number" value="2.2" step="0.1">
+                </label>
+
+                <label class="screw-only">
+                  Screw diameter
+                  <input id="previewScrewD" type="number" value="3.2" step="0.1">
+                </label>
+
+                <label class="screw-only">
+                  Screw depth
+                  <input id="previewScrewH" type="number" value="7" step="0.5">
+                </label>
+
+                <label class="hardware-only">
+                  Hole from cell edge
+                  <input id="previewHoleFromEdge" type="number" value="8" step="0.5">
+                </label>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+        <div class="output-panel">
+          <div class="converter-output active tool-output" id="converterOutput">
+            <div class="stats" id="stats">
+              <span>No file loaded</span>
+            </div>
+            <textarea id="output" spellcheck="false" aria-label="Generated socket arrays" placeholder="Generated socket_diams arrays will appear here."></textarea>
+          </div>
+
+          <div class="layout-output tool-output" id="layoutOutput">
+            <div class="stats" id="layoutStats">
+              <span>No layout loaded</span>
+            </div>
+            <div class="layout-stage">
+              <svg id="layoutSvg" role="img" aria-label="Gridfinity layout preview"></svg>
+              <label class="replacement-block">
+                Output text Box
+                <textarea id="layoutReplacement" readonly spellcheck="false"></textarea>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="table-panel converter-section active" aria-label="Parsed CSV preview">
+        <div class="table-header">
+          <h2>Preview</h2>
+          <span id="previewCount">0 rows</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>System</th>
+                <th>Drive</th>
+                <th>Type</th>
+                <th>Height</th>
+                <th>Bottom</th>
+                <th>Top</th>
+                <th>Length</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+              <tr>
+                <td colspan="8" class="empty">Upload a CSV to preview parsed sockets.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

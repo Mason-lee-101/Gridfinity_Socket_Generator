@@ -24,7 +24,7 @@ A pair of customizable OpenSCAD generators for vertical and horizontal Gridfinit
 <details>
 <summary>Click to expand</summary>
 
-I have add a template CSV fie for people to use to measure their sockets. 
+I have added a template CSV file for people to use to measure their sockets.
 > Note: you have to use `\` instead of `/` as excel or google sheet will treat the fraction as a date or some other format. 
 
 ![Socket example](./Assets/Socket_example.png)
@@ -58,6 +58,32 @@ Tips:
 - If the socket rocks or binds, increase `fit_clearance` slightly.
 - If the socket feels too loose, decrease `fit_clearance` slightly.
 - Print a small test holder before making a full set.
+
+</details>
+
+## Using Static Site
+
+<details>
+<summary>Click to expand</summary>
+
+The `Site` folder contains a static helper page for converting socket CSV files into `socket_diams` arrays and previewing the Gridfinity layout before opening OpenSCAD.
+
+1. Open `Site/index.html` in a browser.
+2. Use **CSV arrays** to upload `socket_template.csv` or a compatible socket CSV.
+3. Choose the output format that matches the generator you want to use.
+4. Download the generated text or copy the `socket_diams` block into the SCAD file.
+5. Use **Layout preview** to test layout, label, magnet, and screw-hole settings.
+6. Copy the replacement text into `Vertical_Socket_generator.scad` or `Horizontal_Socket_generator.scad`.
+
+The static site preserves the socket labels from your CSV. It does not add `mm` to metric labels automatically, so enter labels exactly as you want them engraved.
+
+In the layout preview, the **Screw holes** switch writes:
+
+```scad
+Enabled_screw_holes = 1;
+```
+
+Leave it off to generate `Enabled_screw_holes = 0;`.
 
 </details>
 
@@ -125,15 +151,10 @@ The horizontal generator supports `"grid"`, `"free"`, and `"compact"` layouts. C
 Enable_tapered_socket = 0;
 Enabled_magnet = 0;
 Enabled_labels = 0;
+Enabled_screw_holes = 0;
 ```
 
-Use `1` to enable a feature and `0` to disable it. Magnet pockets are added beneath every Gridfinity cell. Labels are engraved beside their matching holes or cradles.
-
-Optional screw holes are controlled separately:
-
-```scad
-screw_holes = false;
-```
+Use `1` to enable a feature and `0` to disable it. Magnet pockets are added beneath every Gridfinity cell. Labels are engraved beside their matching holes or cradles. Screw holes are added beneath every Gridfinity cell when `Enabled_screw_holes = 1`.
 </details>
 
 ### Spacing and height
@@ -277,7 +298,7 @@ base_r_bottom = 0.8;
 
 magnet_d = 6.2;
 magnet_h = 2.2;
-screw_holes = false;
+Enabled_screw_holes = 0;
 screw_d = 3.2;
 screw_h = 7;
 hole_from_cell_edge = 8;
@@ -286,7 +307,7 @@ hole_from_cell_edge = 8;
 - `grid` is the 42 mm Gridfinity cell pitch.
 - The base dimensions and radii define the tapered Gridfinity foot profile.
 - `magnet_d` and `magnet_h` set the optional magnet-pocket size.
-- Set `screw_holes` to `true` to add screw holes; `screw_d` and `screw_h` set their size.
+- Set `Enabled_screw_holes` to `1` to add screw holes; `screw_d` and `screw_h` set their size.
 - `hole_from_cell_edge` positions magnet and screw-hole centers inward from each cell edge.
 </details>
 
@@ -305,6 +326,8 @@ This is the number of segments OpenSCAD uses to approximate circles. Higher valu
 
 - `Vertical_Socket_generator.scad` - vertical socket-hole generator using diameter and label inputs
 - `Horizontal_Socket_generator.scad` - horizontal socket-cradle generator using diameter, length, and label inputs
+- `Site/index.html` - static CSV converter and layout preview helper
+- `socket_template.csv` - starter CSV for measuring and organizing sockets
 
 ## License
 
